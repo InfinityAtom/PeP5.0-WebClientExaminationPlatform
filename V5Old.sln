@@ -1,0 +1,29 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "AIExamIDE", "AIExamIDE", "{D08282B4-D084-012C-A74D-5DEFCB31DF64}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AIExamIDE", "AIExamIDE\client\AIExamIDE.csproj", "{5AE3FB26-E234-5BC3-5958-267D3F79714D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5AE3FB26-E234-5BC3-5958-267D3F79714D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5AE3FB26-E234-5BC3-5958-267D3F79714D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5AE3FB26-E234-5BC3-5958-267D3F79714D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5AE3FB26-E234-5BC3-5958-267D3F79714D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{5AE3FB26-E234-5BC3-5958-267D3F79714D} = {D08282B4-D084-012C-A74D-5DEFCB31DF64}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {94963FBF-E899-41FE-88EF-F3E9602E3164}
+	EndGlobalSection
+EndGlobal

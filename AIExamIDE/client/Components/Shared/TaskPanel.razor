@@ -1,0 +1,491 @@
+@implements IDisposable
+@inject ExamState ExamState
+@inject ApiClient ApiClient
+@inject IJSRuntime JSRuntime
+
+<MudPaper Style="height: 100%;" Square="true" Elevation="0">
+    <div style="height: 100%; overflow-y: auto;">
+        <MudContainer Class="pa-4">
+            <!-- Header -->
+            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudText Typo="Typo.h5" Class="font-weight-bold">Tasks</MudText>
+                <MudChip T="string" 
+                         Color="@GetTimerChipColor()" 
+                         Size="Size.Medium" 
+                         Icon="@Icons.Material.Filled.Timer"
+                         Style="font-family: monospace; font-weight: bold;">
+                    @FormatTime(ExamState.TimeRemainingSeconds)
+                </MudChip>
+            </MudStack>
+
+            @if (ExamState.CurrentExam != null)
+            {
+                <!-- Current Task Card -->
+                <MudCard Class="mb-4" Elevation="3">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                <MudText Typo="Typo.h6" Class="font-weight-bold">
+                                    Task @(ExamState.CurrentTaskIndex + 1) of @ExamState.CurrentExam.Tasks.Count
+                                </MudText>
+                                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Text">
+                                    @GetTaskProgress()
+                                </MudChip>
+                            </MudStack>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        @if (CurrentTask != null)
+                        {
+                            <MudText Typo="Typo.subtitle1" Class="font-weight-medium mb-2">@CurrentTask.Title</MudText>
+                            <MudText Typo="Typo.body2" Class="text-gray-700">@CurrentTask.Description</MudText>
+                        }
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%;">
+                            <MudButton StartIcon="@Icons.Material.Filled.ArrowBack"
+                                       Variant="Variant.Outlined"
+                                       Size="Size.Small"
+                                       OnClick="PreviousTask"
+                                       Disabled="@(ExamState.CurrentTaskIndex == 0)">
+                                Previous
+                            </MudButton>
+                            <MudButton EndIcon="@Icons.Material.Filled.ArrowForward"
+                                       Variant="Variant.Outlined"
+                                       Size="Size.Small"
+                                       OnClick="NextTask"
+                                       Disabled="@(ExamState.CurrentTaskIndex >= ExamState.CurrentExam.Tasks.Count - 1)">
+                                Next
+                            </MudButton>
+                        </MudStack>
+                    </MudCardActions>
+                </MudCard>
+
+                <!-- CSV Data Files Card -->
+                @if (GetCsvFiles().Any())
+                {
+                    <MudCard Class="mb-4" Elevation="2">
+                        <MudCardHeader>
+                            <CardHeaderContent>
+                                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudIcon Icon="@Icons.Material.Filled.TableChart" Color="Color.Warning" />
+                                    <MudText Typo="Typo.h6" Class="font-weight-medium">CSV Data Files</MudText>
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Text">
+                                        @GetCsvFiles().Count file(s)
+                                    </MudChip>
+                                </MudStack>
+                            </CardHeaderContent>
+                        </MudCardHeader>
+                        <MudCardContent>
+                            <MudStack Spacing="2">
+                                @foreach (var csvFile in GetCsvFiles())
+                                {
+                                    <MudPaper Class="pa-3" Elevation="1" Style="border-left: 4px solid var(--mud-palette-warning);">
+                                        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                                                <MudIcon Icon="@Icons.Material.Filled.TableChart" Size="Size.Small" />
+                                                <MudText Typo="Typo.body1" Class="font-weight-medium">@csvFile.Name</MudText>
+                                            </MudStack>
+                                            <MudStack Row Spacing="1">
+                                                <MudButton StartIcon="@Icons.Material.Filled.Visibility"
+                                                           Size="Size.Small"
+                                                           Variant="Variant.Filled"
+                                                           Color="Color.Info"
+                                                           OnClick="() => ShowCsvOverlay(csvFile)">
+                                                    View
+                                                </MudButton>
+                                                <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
+                                                               Size="Size.Small"
+                                                               Color="Color.Secondary"
+                                                               OnClick="() => CopyPath(csvFile.Path)" />
+                                            </MudStack>
+                                        </MudStack>
+                                    </MudPaper>
+                                }
+                            </MudStack>
+                        </MudCardContent>
+                    </MudCard>
+                }
+
+                <!-- Run Configuration Card -->
+                @if (ExamState.GetRunnableFiles().Any())
+                {
+                    <MudCard Class="mb-4" Elevation="2">
+                        <MudCardHeader>
+                            <CardHeaderContent>
+                                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Color="Color.Success" />
+                                    <MudText Typo="Typo.h6" Class="font-weight-medium">Run Configuration</MudText>
+                                </MudStack>
+                            </CardHeaderContent>
+                        </MudCardHeader>
+                        <MudCardContent>
+                            <MudStack Spacing="3">
+                                <!-- Current File Status -->
+                                @if (ExamState.ActiveFile != null && ExamState.HasMainMethod(ExamState.ActiveFile))
+                                {
+                                    <MudAlert Severity="Severity.Success" Dense="true">
+                                        <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                                            <MudText>Current File: <strong>@ExamState.ActiveFile.Name</strong> has main() method</MudText>
+                                        </MudStack>
+                                    </MudAlert>
+                                }
+
+                                <!-- File Selection -->
+                                <MudSelect @bind-Value="selectedRunFile" 
+                                           Variant="Variant.Outlined" 
+                                           Dense="true">
+                                    <MudSelectItem Value="@("")">Auto-detect</MudSelectItem>
+                                    @foreach (var file in ExamState.GetRunnableFiles())
+                                    {
+                                        <MudSelectItem Value="@file.Path">
+                                            <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                                <MudIcon Icon="@Icons.Custom.FileFormats.FileCode" Size="Size.Small" />
+                                                <span>@file.Name</span>
+                                            </MudStack>
+                                        </MudSelectItem>
+                                    }
+                                </MudSelect>
+
+                                <!-- Run Info -->
+                                <MudText Typo="Typo.caption" Class="text-gray-600">
+                                    <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Class="mr-1" />
+                                    Will run: <strong>@GetAutoDetectedFile()</strong>
+                                </MudText>
+                            </MudStack>
+                        </MudCardContent>
+                    </MudCard>
+                }
+
+                <!-- Action Buttons Card -->
+                <MudCard Class="mb-4" Elevation="2">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                                <MudIcon Icon="@Icons.Material.Filled.Settings" Color="Color.Default" />
+                                <MudText Typo="Typo.h6" Class="font-weight-medium">Actions</MudText>
+                            </MudStack>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudStack Spacing="2">
+                            <MudButton StartIcon="@Icons.Material.Filled.PlayArrow"
+                                       Variant="Variant.Filled"
+                                       Color="Color.Success"
+                                       FullWidth="true"
+                                       Size="Size.Large"
+                                       OnClick="RunCode"
+                                       Disabled="@(isRunning || !HasRunnableFile() || ExamState.IsSubmitted)">
+                                @if (isRunning)
+                                {
+                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                    <span>Running...</span>
+                                }
+                                else
+                                {
+                                    <span>Run @GetRunButtonText()</span>
+                                }
+                            </MudButton>
+                            
+                            <MudButton StartIcon="@Icons.Material.Filled.Refresh"
+                                       Variant="Variant.Filled"
+                                       Color="Color.Warning"
+                                       FullWidth="true"
+                                       OnClick="ResetCode"
+                                       Disabled="@ExamState.IsSubmitted">
+                                Reset All Files
+                            </MudButton>
+                            
+                            <MudButton StartIcon="@Icons.Material.Filled.Send"
+                                       Variant="Variant.Filled"
+                                       Color="Color.Error"
+                                       FullWidth="true"
+                                       OnClick="SubmitExam"
+                                       Disabled="@ExamState.IsSubmitted">
+                                Submit Exam
+                            </MudButton>
+                        </MudStack>
+                    </MudCardContent>
+                </MudCard>
+
+                <!-- Runnable Files Card -->
+                <MudCard Elevation="1">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                                <MudIcon Icon="@Icons.Custom.FileFormats.FileCode" Color="Color.Info" />
+                                <MudText Typo="Typo.h6" Class="font-weight-medium">Runnable Files</MudText>
+                                <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Text">
+                                    @ExamState.GetRunnableFiles().Count() file(s)
+                                </MudChip>
+                            </MudStack>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        @if (ExamState.GetRunnableFiles().Any())
+                        {
+                            <MudStack Spacing="2">
+                                @foreach (var file in ExamState.GetRunnableFiles())
+                                {
+                                    <MudPaper Class="pa-2" Elevation="1" Style="border-left: 4px solid var(--mud-palette-info);">
+                                        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                            <MudButton StartIcon="@Icons.Custom.FileFormats.FileCode"
+                                                       Variant="Variant.Text"
+                                                       Size="Size.Small"
+                                                       OnClick="() => ExamState.OpenFile(file)">
+                                                @file.Name
+                                            </MudButton>
+                                            <MudIconButton Icon="@Icons.Material.Filled.PlayArrow"
+                                                           Size="Size.Small"
+                                                           Color="Color.Success"
+                                                           OnClick="() => RunSpecificFile(file)"
+                                                           Disabled="@ExamState.IsSubmitted" />
+                                        </MudStack>
+                                    </MudPaper>
+                                }
+                            </MudStack>
+                        }
+                        else
+                        {
+                            <MudAlert Severity="Severity.Info" Dense="true">
+                                <MudText>No runnable files found. Create a Java file with a main() method.</MudText>
+                            </MudAlert>
+                        }
+                    </MudCardContent>
+                </MudCard>
+            }
+        </MudContainer>
+    </div>
+</MudPaper>
+
+@code {
+    private bool isRunning = false;
+    private string selectedRunFile = "";
+    private bool _disposed = false;
+    private ExamTask? CurrentTask => ExamState.CurrentExam?.Tasks.ElementAtOrDefault(ExamState.CurrentTaskIndex);
+
+    protected override void OnInitialized()
+    {
+        ExamState.OnChange += StateHasChanged;
+    }
+
+    private List<ExamFile> GetCsvFiles()
+    {
+        return ExamState.Files.Where(f => !f.IsDirectory && f.Name.EndsWith(".csv")).ToList();
+    }
+
+    // New helper methods for better UI
+    private string GetTaskProgress()
+    {
+        if (ExamState.CurrentExam == null) return "0%";
+        var progress = ((ExamState.CurrentTaskIndex + 1) * 100) / ExamState.CurrentExam.Tasks.Count;
+        return $"{progress}%";
+    }
+
+    private Color GetTimerChipColor()
+    {
+        if (ExamState.TimeRemainingSeconds <= 60)
+            return Color.Error;
+        else if (ExamState.TimeRemainingSeconds <= 300)
+            return Color.Warning;
+        else
+            return Color.Success;
+    }
+
+    // CSV Overlay - Now calls Home.razor method
+    private void ShowCsvOverlay(ExamFile csvFile)
+    {
+        // This will call the ShowCsvOverlay method in Home.razor
+        var home = JSRuntime.InvokeVoidAsync("eval", $"window.blazorCulture.showCsvOverlay('{csvFile.Name}', '{csvFile.Path}', '{csvFile.Content}')");
+        
+        // Alternative: Use a service or event to communicate with Home.razor
+        // For now, we'll use a simple approach through ExamState
+        ExamState.ShowCsvOverlay(csvFile);
+    }
+
+    private async Task CopyPath(string path)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", path);
+            Console.WriteLine($"Path copied to clipboard: {path}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to copy path: {ex.Message}");
+        }
+    }
+
+    private bool HasRunnableFile()
+    {
+        return ExamState.GetRunnableFiles().Any();
+    }
+
+    private string GetAutoDetectedFile()
+    {
+        if (ExamState.ActiveFile != null && ExamState.HasMainMethod(ExamState.ActiveFile))
+        {
+            return ExamState.ActiveFile.Name;
+        }
+
+        var mainJava = ExamState.GetFileByPath("src/Main.java");
+        if (mainJava != null && ExamState.HasMainMethod(mainJava))
+        {
+            return "Main.java";
+        }
+
+        var firstRunnable = ExamState.GetRunnableFiles().FirstOrDefault();
+        return firstRunnable?.Name ?? "None";
+    }
+
+    private string GetRunButtonText()
+    {
+        if (!string.IsNullOrEmpty(selectedRunFile))
+        {
+            var file = ExamState.GetFileByPath(selectedRunFile);
+            return file?.Name ?? "File";
+        }
+        return GetAutoDetectedFile();
+    }
+
+    private async Task RunCode()
+    {
+        if (_disposed) return;
+        ExamState.NotifyCodeRunStarted();
+        isRunning = true;
+        StateHasChanged();
+
+        try
+        {
+            await Task.Delay(100);
+            var files = ExamState.GetAllFiles();
+            var mainFile = GetFileToRun();
+
+            if (mainFile == null)
+            {
+                ExamState.SetConsoleOutput("Error: No runnable file found. Make sure your Java file has a main() method.");
+                return;
+            }
+
+            Console.WriteLine($"🚀 Running {mainFile.Name} with content length: {mainFile.Content.Length}");
+
+            var result = await ApiClient.RunCodeAsync(files, mainFile.Path);
+
+            var output = !string.IsNullOrEmpty(result.Error)
+                ? $"=== Running {mainFile.Name} ===\n\nError:\n{result.Error}"
+                : $"=== Running {mainFile.Name} ===\n\nOutput:\n{result.Output}";
+
+            ExamState.SetConsoleOutput(output);
+        }
+        catch (Exception ex)
+        {
+            ExamState.SetConsoleOutput($"Error: {ex.Message}");
+        }
+        finally
+        {
+            isRunning = false;
+            if (!_disposed) StateHasChanged();
+        }
+    }
+
+    private async Task RunSpecificFile(ExamFile file)
+    {
+        selectedRunFile = file.Path;
+        await RunCode();
+    }
+
+    private ExamFile? GetFileToRun()
+    {
+        if (!string.IsNullOrEmpty(selectedRunFile))
+        {
+            return ExamState.GetFileByPath(selectedRunFile);
+        }
+
+        if (ExamState.ActiveFile != null && ExamState.HasMainMethod(ExamState.ActiveFile))
+        {
+            return ExamState.ActiveFile;
+        }
+
+        var mainJava = ExamState.GetFileByPath("src/Main.java");
+        if (mainJava != null && ExamState.HasMainMethod(mainJava))
+        {
+            return mainJava;
+        }
+
+        return ExamState.GetRunnableFiles().FirstOrDefault();
+    }
+
+    private async Task ResetCode()
+    {
+        if (_disposed) return;
+
+        try
+        {
+            await ApiClient.ResetExamAsync();
+            var examData = await ApiClient.GenerateExamAsync();
+            ExamState.LoadExam(examData.Exam, examData.Files);
+            ExamState.SetConsoleOutput("All files reset to initial state.");
+        }
+        catch (Exception ex)
+        {
+            ExamState.SetConsoleOutput($"Reset failed: {ex.Message}");
+        }
+    }
+
+    private async Task SubmitExam()
+    {
+        if (_disposed) return;
+
+        try
+        {
+            var files = ExamState.GetAllFiles();
+            await ApiClient.SubmitExamAsync(files);
+            ExamState.MarkAsSubmitted();
+            ExamState.SetConsoleOutput("Exam submitted successfully!");
+        }
+        catch (Exception ex)
+        {
+            ExamState.SetConsoleOutput($"Submit failed: {ex.Message}");
+        }
+    }
+
+    private void PreviousTask()
+    {
+        if (_disposed) return;
+
+        if (ExamState.CurrentTaskIndex > 0)
+        {
+            ExamState.CurrentTaskIndex--;
+            StateHasChanged();
+        }
+    }
+
+    private void NextTask()
+    {
+        if (_disposed) return;
+
+        if (ExamState.CurrentExam != null && ExamState.CurrentTaskIndex < ExamState.CurrentExam.Tasks.Count - 1)
+        {
+            ExamState.CurrentTaskIndex++;
+            StateHasChanged();
+        }
+    }
+
+    private string FormatTime(int seconds)
+    {
+        var timeSpan = TimeSpan.FromSeconds(seconds);
+        return $"{timeSpan.Minutes:D2}:{timeSpan.Seconds:D2}";
+    }
+
+    public void Dispose()
+    {
+        if (!_disposed)
+        {
+            _disposed = true;
+            if (ExamState != null)
+            {
+                ExamState.OnChange -= StateHasChanged;
+            }
+        }
+    }
+}

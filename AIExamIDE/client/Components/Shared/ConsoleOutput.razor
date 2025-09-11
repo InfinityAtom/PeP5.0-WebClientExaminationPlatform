@@ -1,0 +1,32 @@
+@implements IDisposable
+@inject ExamState ExamState
+
+<div class="h-full d-flex flex-column">
+    <MudPaper Class="pa-2 border-b border-gray-600" Elevation="0" Square="true" Style="background-color: #2d2d2d;">
+        <MudText Typo="Typo.subtitle2" Style="color: #ffffff;">Console Output</MudText>
+    </MudPaper>
+    <div class="flex-grow overflow-auto pa-2" style="background-color: #1a1a1a; color: #ffffff; font-family: 'Consolas', 'Monaco', 'Courier New', monospace;">
+        <pre style="margin: 0; white-space: pre-wrap;">@ExamState.ConsoleOutput</pre>
+    </div>
+</div>
+
+@code {
+    private bool _disposed = false;
+
+    protected override void OnInitialized()
+    {
+        ExamState.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        if (!_disposed)
+        {
+            _disposed = true;
+            if (ExamState != null)
+            {
+                ExamState.OnChange -= StateHasChanged;
+            }
+        }
+    }
+}

@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    depends_on:
+      - backend
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      # Set your OpenAI API key here or via .env file
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - examdata:/workspace  # Named volume for workspace sharing
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  examdata:
+    name: examdata

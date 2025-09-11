@@ -1,0 +1,636 @@
+﻿@page "/"
+@using AIExamIDE.Services
+@using AIExamIDE.Models
+@inject ExamState ExamState
+@inject ApiClient ApiClient
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>PePExam - @FormatTime(ExamState.TimeRemainingSeconds) Remaining</PageTitle>
+
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+
+    <!-- Header -->
+    <MudAppBar Elevation="1" Dense="true" Color="Color.Primary">
+        <MudText Typo="Typo.h6" Class="text-white font-weight-bold">
+            Programming Examination Platform v5.0
+        </MudText>
+        <MudSpacer />
+        <!-- Console Toggle Button -->
+        <MudIconButton Icon="@Icons.Material.Filled.Terminal" 
+                       Color="Color.Inherit" 
+                       OnClick="ToggleConsole" />
+    </MudAppBar>
+
+    <!-- Main IDE Split -->
+    <MudMainContent>
+        <MudGrid Spacing="0" Class="h-100">
+            
+            <!-- Solution Explorer -->
+            <MudItem xs="2" Class="border-right bg-gray-100">
+                <SolutionExplorer />
+            </MudItem>
+
+            <!-- Code Editor -->
+            <MudItem xs="7" Class="bg-dark">
+                <EditorTabs />
+            </MudItem>
+
+            <!-- Task Panel -->
+            <MudItem xs="3" Class="border-left bg-gray-50">
+                <TaskPanel />
+            </MudItem>
+        </MudGrid>
+    </MudMainContent>
+</MudLayout>
+
+<!-- Console Overlay using direct positioning -->
+@if (_isConsoleOpen)
+{
+    <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1400; display: flex; align-items: center; justify-content: center; pointer-events: none;">
+        <MudPaper Class="pa-0" Style="width: 95vw; height: 60vh; max-width: 1400px; display: flex; flex-direction: column; pointer-events: auto;" Elevation="8">
+            <!-- Console Header -->
+            <MudPaper Class="pa-3" Elevation="0" Style="background-color: #1e1e1e; color: white; border-radius: 4px 4px 0 0;">
+                <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.Terminal" />
+                        <MudText Typo="Typo.h6">Console Output</MudText>
+                        
+                        <!-- Timer as MudChip -->
+                        <MudChip T="string" 
+                                 Color="@GetTimerChipColor()" 
+                                 Size="Size.Small" 
+                                 Icon="@Icons.Material.Filled.Timer"
+                                 Style="font-family: monospace; font-weight: bold;">
+                            @FormatTime(ExamState.TimeRemainingSeconds)
+                        </MudChip>
+                    </MudStack>
+                    
+                    <MudStack Row Spacing="1">
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" 
+                                       Color="Color.Inherit" 
+                                       Size="Size.Small"
+                                       OnClick="ClearConsole" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Minimize" 
+                                       Color="Color.Inherit" 
+                                       Size="Size.Small"
+                                       OnClick="MinimizeConsole" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" 
+                                       Color="Color.Inherit" 
+                                       Size="Size.Small"
+                                       OnClick="CloseConsole" />
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+            
+            <!-- Console Content -->
+            <div style="flex: 1; overflow: hidden; background-color: #0d1117;">
+                <div style="height: 100%; padding: 16px; overflow-y: auto;">
+                    <div style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 14px; line-height: 1.4; white-space: pre-wrap; word-break: break-word;">
+                        @if (string.IsNullOrEmpty(ExamState.ConsoleOutput))
+                        {
+                            <div style="color: #7d8590; font-style: italic;">
+                                Console output will appear here...
+                            </div>
+                        }
+                        else
+                        {
+                            @((MarkupString)FormatConsoleOutput(ExamState.ConsoleOutput))
+                        }
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Console Footer -->
+            <MudPaper Class="pa-2" Elevation="0" Style="background-color: #21262d; border-radius: 0 0 4px 4px;">
+                <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.caption" Style="color: #7d8590;">
+                        @if (!string.IsNullOrEmpty(ExamState.ConsoleOutput))
+                        {
+                            <span>Output ready • @DateTime.Now.ToString("HH:mm:ss")</span>
+                        }
+                        else
+                        {
+                            <span>Ready</span>
+                        }
+                    </MudText>
+                    <MudStack Row Spacing="1">
+                        <MudButton StartIcon="@Icons.Material.Filled.ContentCopy" 
+                                   Size="Size.Small" 
+                                   Variant="Variant.Text" 
+                                   Style="color: #7d8590;"
+                                   OnClick="CopyConsoleOutput"
+                                   Disabled="@string.IsNullOrEmpty(ExamState.ConsoleOutput)">
+                            Copy
+                        </MudButton>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        </MudPaper>
+    </div>
+}
+
+<!-- CSV Viewer Overlay - CENTERED -->
+@if (_isCsvOverlayOpen)
+{
+    <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1500; display: flex; align-items: center; justify-content: center; pointer-events: none;">
+        <MudPaper Class="pa-0" Style="width: 90vw; height: 80vh; max-width: 1400px; display: flex; flex-direction: column; pointer-events: auto;" Elevation="8">
+            <!-- CSV Header -->
+            <MudPaper Class="pa-3" Elevation="0" Style="background-color: #1e1e1e; color: white; border-radius: 4px 4px 0 0;">
+                <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.TableChart" />
+                        <MudText Typo="Typo.h6">CSV Data Viewer</MudText>
+                        
+                        <!-- File Name Chip -->
+                        <MudChip T="string" 
+                                 Color="Color.Info" 
+                                 Size="Size.Small" 
+                                 Icon="@Icons.Material.Filled.Description"
+                                 Style="font-family: monospace;">
+                            @_selectedCsvFile?.Name
+                        </MudChip>
+                    </MudStack>
+                    
+                    <MudStack Row Spacing="1">
+                        <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" 
+                                       Color="Color.Inherit" 
+                                       Size="Size.Small"
+                                       OnClick="() => CopyPath(_selectedCsvFile?.Path ?? string.Empty)" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" 
+                                       Color="Color.Inherit" 
+                                       Size="Size.Small"
+                                       OnClick="CloseCsvOverlay" />
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+            
+            <!-- CSV Info Bar -->
+            <MudPaper Class="pa-2" Elevation="0" Style="background-color: #2d3748; color: #e2e8f0; border-bottom: 1px solid #4a5568;">
+                <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <MudStack Row AlignItems="AlignItems.Center" Spacing="3">
+                        <MudText Typo="Typo.caption">
+                            <MudIcon Icon="@Icons.Material.Filled.Folder" Size="Size.Small" Class="mr-1" />
+                            Path: @_selectedCsvFile?.Path
+                        </MudText>
+                        @if (_csvData != null && _csvHeaders != null)
+                        {
+                            <MudText Typo="Typo.caption">
+                                <MudIcon Icon="@Icons.Material.Filled.GridOn" Size="Size.Small" Class="mr-1" />
+                                @_csvData.Count rows × @_csvHeaders.Count columns
+                            </MudText>
+                        }
+                    </MudStack>
+                    <MudText Typo="Typo.caption" Style="color: #a0aec0;">
+                        CSV Data Preview
+                    </MudText>
+                </MudStack>
+            </MudPaper>
+            
+            <!-- CSV Content -->
+            <div style="flex: 1; overflow: hidden; background-color: #f7fafc;">
+                @if (_selectedCsvFile != null && _csvData != null && _csvHeaders != null)
+                {
+                    <MudDataGrid T="Dictionary<string, string>" 
+                                 Items="_csvData" 
+                                 Dense="false" 
+                                 Hover="true" 
+                                 Bordered="true" 
+                                 Striped="true" 
+                                 FixedHeader="true" 
+                                 Height="100%"
+                                 Virtualize="true"
+                                 Style="height: 100%;">
+                        <Columns>
+                            <!-- Row Number Column -->
+                            <TemplateColumn Title="#" Sortable="false" Filterable="false" Style="width: 60px; text-align: center; background-color: #edf2f7;">
+                                <CellTemplate>
+                                    <MudText Typo="Typo.caption" Style="color: #718096; font-weight: bold;">
+                                        @(_csvData.IndexOf(context.Item) + 1)
+                                    </MudText>
+                                </CellTemplate>
+                            </TemplateColumn>
+                            
+                            <!-- Data Columns -->
+                            @foreach (var header in _csvHeaders)
+                            {
+                                <TemplateColumn Title="@header" Sortable="true" Filterable="true" Resizable="true">
+                                    <HeaderTemplate>
+                                        <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                            <MudIcon Icon="@Icons.Material.Filled.TableChart" Size="Size.Small" />
+                                            <MudText Typo="Typo.body2" Class="font-weight-bold">@header</MudText>
+                                        </MudStack>
+                                    </HeaderTemplate>
+                                    <CellTemplate>
+                                        <MudText Typo="Typo.body2" Style="word-break: break-word;">
+                                            @(context.Item.ContainsKey(header) ? context.Item[header] : string.Empty)
+                                        </MudText>
+                                    </CellTemplate>
+                                </TemplateColumn>
+                            }
+                        </Columns>
+                        <NoRecordsContent>
+                            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="height: 200px;">
+                                <MudIcon Icon="@Icons.Material.Filled.TableChart" Size="Size.Large" Style="color: #cbd5e0;" />
+                                <MudText Typo="Typo.h6" Style="color: #718096;">No data available</MudText>
+                                <MudText Typo="Typo.body2" Style="color: #a0aec0;">The CSV file appears to be empty</MudText>
+                            </MudStack>
+                        </NoRecordsContent>
+                        <LoadingContent>
+                            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="height: 200px;">
+                                <MudProgressCircular Indeterminate="true" />
+                                <MudText Typo="Typo.body1">Loading CSV data...</MudText>
+                            </MudStack>
+                        </LoadingContent>
+                    </MudDataGrid>
+                }
+                else
+                {
+                    <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="height: 100%;">
+                        <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+                        <MudText Typo="Typo.h6" Class="mt-4">Processing CSV data...</MudText>
+                        <MudText Typo="Typo.body2" Style="color: #718096;">Please wait while we parse the file</MudText>
+                    </MudStack>
+                }
+            </div>
+            
+            <!-- CSV Footer -->
+            <MudPaper Class="pa-2" Elevation="0" Style="background-color: #2d3748; color: #e2e8f0; border-radius: 0 0 4px 4px;">
+                <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                        @if (_csvData != null && _csvHeaders != null)
+                        {
+                            <MudText Typo="Typo.caption">
+                                <MudIcon Icon="@Icons.Material.Filled.Assessment" Size="Size.Small" Class="mr-1" />
+                                Data loaded successfully
+                            </MudText>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.caption">
+                                <MudIcon Icon="@Icons.Material.Filled.HourglassEmpty" Size="Size.Small" Class="mr-1" />
+                                Processing...
+                            </MudText>
+                        }
+                    </MudStack>
+                    <MudStack Row Spacing="1">
+                        <MudButton StartIcon="@Icons.Material.Filled.ContentCopy" 
+                                   Size="Size.Small" 
+                                   Variant="Variant.Text" 
+                                   Style="color: #e2e8f0;"
+                                   OnClick="() => CopyPath(_selectedCsvFile?.Path ?? string.Empty)">
+                            Copy Path
+                        </MudButton>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        </MudPaper>
+    </div>
+}
+
+<!-- Background Overlay for Console -->
+<MudOverlay DarkBackground="true" 
+            AutoClose="true" 
+            OnClosed="CloseConsole"
+            Visible="@_isConsoleOpen" />
+
+<!-- Background Overlay for CSV -->
+<MudOverlay DarkBackground="true" 
+            AutoClose="true" 
+            OnClosed="CloseCsvOverlay"
+            Visible="@_isCsvOverlayOpen" />
+
+@code {
+    private bool _isConsoleOpen = false;
+    private string _lastConsoleOutput = "";
+    private bool _autoShowOnRun = false;
+
+    // CSV Overlay variables
+    private bool _isCsvOverlayOpen = false;
+    private ExamFile? _selectedCsvFile = null;
+    private List<Dictionary<string, string>>? _csvData = null;
+    private List<string>? _csvHeaders = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ExamState.SetInvokeAsync(async (func) => await InvokeAsync(func));
+        ExamState.OnChange += OnStateChanged;
+        ExamState.OnCodeRunStarted += OnCodeRunStarted;
+        ExamState.OnShowCsvOverlay += ShowCsvOverlay; // Add this line
+        try
+        {
+            var examData = await ApiClient.GenerateExamAsync();
+            ExamState.LoadExam(examData.Exam, examData.Files);
+
+            var mainFile = ExamState.GetFileByPath("src/Main.java");
+            if (mainFile != null)
+            {
+                ExamState.OpenFile(mainFile);
+            }
+        }
+        catch (Exception ex)
+        {
+            ExamState.SetConsoleOutput($"Error loading exam: {ex.Message}");
+        }
+    }
+
+    private void OnCodeRunStarted()
+    {
+        // Set flag to auto-show console when run is triggered
+        _autoShowOnRun = true;
+    }
+
+    private void OnStateChanged()
+    {
+        // Only auto-open console if:
+        // 1. Auto-show flag is set (run was triggered)
+        // 2. There's new console output
+        // 3. Console is not already open
+        if (_autoShowOnRun && 
+            !string.IsNullOrEmpty(ExamState.ConsoleOutput) && 
+            ExamState.ConsoleOutput != _lastConsoleOutput && 
+            !_isConsoleOpen)
+        {
+            _isConsoleOpen = true;
+            _autoShowOnRun = false; // Reset flag after showing
+        }
+        
+        _lastConsoleOutput = ExamState.ConsoleOutput;
+        StateHasChanged();
+    }
+
+    private void ToggleConsole()
+    {
+        _isConsoleOpen = !_isConsoleOpen;
+        _autoShowOnRun = false; // Reset auto-show flag when manually toggling
+    }
+
+    private void CloseConsole()
+    {
+        _isConsoleOpen = false;
+        _autoShowOnRun = false; // Reset auto-show flag when closing
+    }
+
+    private void MinimizeConsole()
+    {
+        _isConsoleOpen = false;
+        _autoShowOnRun = false; // Reset auto-show flag when minimizing
+    }
+
+    private void ClearConsole()
+    {
+        ExamState.SetConsoleOutput("");
+    }
+
+    private async Task CopyConsoleOutput()
+    {
+        if (!string.IsNullOrEmpty(ExamState.ConsoleOutput))
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", ExamState.ConsoleOutput);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to copy console output: {ex.Message}");
+            }
+        }
+    }
+
+    // CSV Overlay methods
+    public void ShowCsvOverlay(ExamFile csvFile)
+    {
+        _selectedCsvFile = csvFile;
+        ParseCsvData(csvFile.Content);
+        _isCsvOverlayOpen = true;
+        StateHasChanged();
+    }
+
+    private void ParseCsvData(string csvContent)
+    {
+        try
+        {
+            var lines = csvContent.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length == 0) return;
+
+            // Parse headers
+            _csvHeaders = ParseCsvLine(lines[0]);
+
+            // Parse data rows
+            _csvData = new List<Dictionary<string, string>>();
+            for (int i = 1; i < lines.Length; i++)
+            {
+                var values = ParseCsvLine(lines[i]);
+                var row = new Dictionary<string, string>();
+                
+                for (int j = 0; j < _csvHeaders.Count; j++)
+                {
+                    row[_csvHeaders[j]] = j < values.Count ? values[j] : string.Empty;
+                }
+                _csvData.Add(row);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error parsing CSV: {ex.Message}");
+            _csvData = new List<Dictionary<string, string>>();
+            _csvHeaders = new List<string>();
+        }
+    }
+
+    private List<string> ParseCsvLine(string line)
+    {
+        var result = new List<string>();
+        var current = new System.Text.StringBuilder();
+        bool inQuotes = false;
+        
+        for (int i = 0; i < line.Length; i++)
+        {
+            char c = line[i];
+            
+            if (c == '"')
+            {
+                if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
+                {
+                    current.Append('"');
+                    i++;
+                }
+                else
+                {
+                    inQuotes = !inQuotes;
+                }
+            }
+            else if (c == ',' && !inQuotes)
+            {
+                result.Add(current.ToString().Trim());
+                current.Clear();
+            }
+            else
+            {
+                current.Append(c);
+            }
+        }
+        
+        result.Add(current.ToString().Trim());
+        return result;
+    }
+
+    private void CloseCsvOverlay()
+    {
+        _isCsvOverlayOpen = false;
+        _selectedCsvFile = null;
+        _csvData = null;
+        _csvHeaders = null;
+        StateHasChanged();
+    }
+
+    private async Task CopyPath(string path)
+    {
+        if (!string.IsNullOrEmpty(path))
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", path);
+                Console.WriteLine($"Path copied to clipboard: {path}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to copy path: {ex.Message}");
+            }
+        }
+    }
+
+    // Timer chip color based on remaining time
+    private Color GetTimerChipColor()
+    {
+        if (ExamState.TimeRemainingSeconds <= 60)
+            return Color.Error;
+        else if (ExamState.TimeRemainingSeconds <= 300)
+            return Color.Warning;
+        else
+            return Color.Success;
+    }
+
+    private string FormatConsoleOutput(string output)
+    {
+        if (string.IsNullOrEmpty(output))
+            return "";
+
+        // Split output into lines for processing
+        var lines = output.Split('\n');
+        var formattedLines = new List<string>();
+
+        foreach (var line in lines)
+        {
+            var formattedLine = line;
+            var lineColor = "#e6edf3"; // Default white color
+
+            // Check for error indicators
+            if (IsErrorLine(line))
+            {
+                lineColor = "#ff6b6b"; // Red color for errors
+            }
+            else if (IsWarningLine(line))
+            {
+                lineColor = "#ffa726"; // Orange color for warnings
+            }
+            else if (IsSuccessLine(line))
+            {
+                lineColor = "#66bb6a"; // Green color for success
+            }
+            else if (IsInfoLine(line))
+            {
+                lineColor = "#42a5f5"; // Blue color for info
+            }
+
+            // Wrap the line in a span with the appropriate color
+            formattedLine = $"<span style=\"color: {lineColor};\">{System.Web.HttpUtility.HtmlEncode(line)}</span>";
+            formattedLines.Add(formattedLine);
+        }
+
+        return string.Join("<br/>", formattedLines);
+    }
+
+    private bool IsErrorLine(string line)
+    {
+        var lowerLine = line.ToLower();
+        return lowerLine.Contains("error") ||
+               lowerLine.Contains("exception") ||
+               lowerLine.Contains("failed") ||
+               lowerLine.Contains("cannot") ||
+               lowerLine.Contains("unable") ||
+               lowerLine.Contains("invalid") ||
+               lowerLine.Contains("compilation failed") ||
+               lowerLine.Contains("build failed") ||
+               lowerLine.StartsWith("at ") || // Stack trace lines
+               lowerLine.Contains("caused by:");
+    }
+
+    private bool IsWarningLine(string line)
+    {
+        var lowerLine = line.ToLower();
+        return lowerLine.Contains("warning") ||
+               lowerLine.Contains("deprecated") ||
+               lowerLine.Contains("note:");
+    }
+
+    private bool IsSuccessLine(string line)
+    {
+        var lowerLine = line.ToLower();
+        return lowerLine.Contains("success") ||
+               lowerLine.Contains("completed") ||
+               lowerLine.Contains("finished") ||
+               lowerLine.Contains("build successful") ||
+               lowerLine.Contains("compilation successful") ||
+               lowerLine.StartsWith("=== running") ||
+               lowerLine.Contains("submitted successfully");
+    }
+
+    private bool IsInfoLine(string line)
+    {
+        var lowerLine = line.ToLower();
+        return lowerLine.StartsWith("info:") ||
+               lowerLine.Contains("loading") ||
+               lowerLine.Contains("starting") ||
+               lowerLine.Contains("initializing");
+    }
+
+    private string FormatTime(int seconds)
+    {
+        var timeSpan = TimeSpan.FromSeconds(seconds);
+        if (timeSpan.TotalHours >= 1)
+        {
+            return $"{(int)timeSpan.TotalHours:D2}:{timeSpan.Minutes:D2}:{timeSpan.Seconds:D2}";
+        }
+        else
+        {
+            return $"{timeSpan.Minutes:D2}:{timeSpan.Seconds:D2}";
+        }
+    }
+
+    private async Task SubmitExam()
+    {
+        try
+        {
+            var files = ExamState.GetAllFiles();
+            await ApiClient.SubmitExamAsync(files);
+            ExamState.MarkAsSubmitted();
+            ExamState.SetConsoleOutput("Exam submitted successfully!");
+        }
+        catch (Exception ex)
+        {
+            ExamState.SetConsoleOutput($"Submit failed: {ex.Message}");
+        }
+    }
+
+    public void Dispose()
+    {
+        ExamState.OnChange -= OnStateChanged;
+        ExamState.OnCodeRunStarted -= OnCodeRunStarted;
+    }
+}

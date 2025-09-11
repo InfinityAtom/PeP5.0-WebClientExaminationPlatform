@@ -1,0 +1,485 @@
+@implements IDisposable
+@inject ExamState ExamState
+@inject IJSRuntime JSRuntime
+
+<MudPaper Style="height: 100%; background-color: #fafafa;" Square="true" Elevation="0">
+    <!-- Header with Actions -->
+    <MudPaper Class="pa-3" Elevation="0" Square="true" Style="border-bottom: 1px solid #e0e0e0;">
+        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2">
+            <MudText Typo="Typo.h6" Class="font-weight-bold">Solution Explorer</MudText>
+            <MudStack Row Spacing="1">
+                <MudIconButton Icon="@Icons.Material.Filled.CreateNewFolder" 
+                             Size="Size.Small" 
+                             OnClick="() => ShowCreateDialog(true)"
+                             Title="New Folder" />
+                <MudIconButton Icon="@Icons.Material.Filled.NoteAdd" 
+                             Size="Size.Small" 
+                             OnClick="() => ShowCreateDialog(false)"
+                             Title="New File" />
+                <MudIconButton Icon="@Icons.Material.Filled.Refresh" 
+                             Size="Size.Small" 
+                             OnClick="RefreshFiles"
+                             Title="Refresh" />
+            </MudStack>
+        </MudStack>
+        
+        <!-- Search Box -->
+        <MudTextField @bind-Value="searchFilter" 
+                    Placeholder="Search files..." 
+                    Variant="Variant.Outlined" 
+                    Dense="true"
+                    Adornment="Adornment.Start"
+                    AdornmentIcon="@Icons.Material.Filled.Search"
+                    Immediate="true" />
+    </MudPaper>
+    
+    <!-- File List -->
+    <MudScrollContainer Style="height: calc(100% - 140px);">
+        <MudContainer Class="pa-2">
+            @if (ExamState.Files.Any())
+            {
+                <MudList T="string" Dense="true" Clickable="true">
+                    @foreach (var file in GetFilteredRootFiles())
+                    {
+                        @if (file.IsDirectory)
+                        {
+                            <!-- Directory -->
+                            <MudListItem T="string" 
+                                       OnClick="() => ToggleDirectory(file.Path)"
+                                       Icon="@(IsExpanded(file.Path) ? Icons.Material.Filled.FolderOpen : Icons.Material.Filled.Folder)"
+                                       IconColor="Color.Primary">
+                                <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Style="width: 100%;">
+                                    <MudStack Row AlignItems="AlignItems.Center">
+                                        <MudIcon Icon="@(IsExpanded(file.Path) ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)" 
+                                               Size="Size.Small" Class="mr-1" />
+                                        <MudText Class="font-weight-medium">@file.Name</MudText>
+                                    </MudStack>
+                                    <MudStack Row Spacing="1" @onclick:stopPropagation="true">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Edit" 
+                                                     Size="Size.Small" 
+                                                     OnClick="() => StartRename(file)"
+                                                     Title="Rename" />
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" 
+                                                     Size="Size.Small" 
+                                                     Color="Color.Error"
+                                                     OnClick="() => DeleteFile(file)"
+                                                     Title="Delete" />
+                                    </MudStack>
+                                </MudStack>
+                            </MudListItem>
+                            
+                            <!-- Directory Children -->
+                            @if (IsExpanded(file.Path))
+                            {
+                                @foreach (var child in file.Children.OrderBy(f => f.IsDirectory ? 0 : 1).ThenBy(f => f.Name))
+                                {
+                                    <MudListItem T="string" 
+                                               OnClick="() => ExamState.OpenFile(child)"
+                                               Icon="@GetFileIcon(child)"
+                                               Class="ml-6">
+                                        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Style="width: 100%;">
+                                            <MudText>@child.Name</MudText>
+                                            <MudStack Row Spacing="1" @onclick:stopPropagation="true">
+                                                <MudIconButton Icon="@Icons.Material.Filled.Edit" 
+                                                             Size="Size.Small" 
+                                                             OnClick="() => StartRename(child)"
+                                                             Title="Rename" />
+                                                @if (!child.IsDirectory)
+                                                {
+                                                    <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" 
+                                                                 Size="Size.Small" 
+                                                                 OnClick="() => DuplicateFile(child)"
+                                                                 Title="Duplicate" />
+                                                }
+                                                <MudIconButton Icon="@Icons.Material.Filled.Delete" 
+                                                             Size="Size.Small" 
+                                                             Color="Color.Error"
+                                                             OnClick="() => DeleteFile(child)"
+                                                             Title="Delete" />
+                                            </MudStack>
+                                        </MudStack>
+                                    </MudListItem>
+                                }
+                            }
+                        }
+                        else
+                        {
+                            <!-- Root Level File -->
+                            <MudListItem T="string" 
+                                       OnClick="() => ExamState.OpenFile(file)"
+                                       Icon="@GetFileIcon(file)">
+                                <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Style="width: 100%;">
+                                    <MudText>@file.Name</MudText>
+                                    <MudStack Row Spacing="1" @onclick:stopPropagation="true">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Edit" 
+                                                     Size="Size.Small" 
+                                                     OnClick="() => StartRename(file)"
+                                                     Title="Rename" />
+                                        <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" 
+                                                     Size="Size.Small" 
+                                                     OnClick="() => DuplicateFile(file)"
+                                                     Title="Duplicate" />
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" 
+                                                     Size="Size.Small" 
+                                                     Color="Color.Error"
+                                                     OnClick="() => DeleteFile(file)"
+                                                     Title="Delete" />
+                                    </MudStack>
+                                </MudStack>
+                            </MudListItem>
+                        }
+                    }
+                </MudList>
+            }
+            else
+            {
+                <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="height: 200px;">
+                    <MudIcon Icon="@Icons.Material.Filled.Folder" Size="Size.Large" Color="Color.Default" />
+                    <MudText Typo="Typo.body1" Color="Color.Default">No files loaded</MudText>
+                    <MudButton StartIcon="@Icons.Material.Filled.NoteAdd"
+                             Variant="Variant.Filled"
+                             Color="Color.Primary"
+                             Size="Size.Small"
+                             OnClick="() => ShowCreateDialog(false)">
+                        Create First File
+                    </MudButton>
+                </MudStack>
+            }
+        </MudContainer>
+    </MudScrollContainer>
+    
+    <!-- Status Bar -->
+    <MudPaper Class="pa-2" Elevation="0" Square="true" Style="border-top: 1px solid #e0e0e0;">
+        <MudText Typo="Typo.caption">
+            @ExamState.Files.Count file(s) | @ExamState.OpenFiles.Count open
+        </MudText>
+    </MudPaper>
+</MudPaper>
+
+<!-- Create File/Folder Dialog -->
+<MudDialog @bind-IsVisible="showCreateDialog" Options="dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@(isCreatingFolder ? Icons.Material.Filled.CreateNewFolder : Icons.Material.Filled.NoteAdd)" Class="mr-3" />
+            Create @(isCreatingFolder ? "Folder" : "File")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudTextField @bind-Value="newItemName" 
+                    Label="Name" 
+                    Variant="Variant.Outlined"
+                    Placeholder="@(isCreatingFolder ? "folder-name" : "filename.java")"
+                    OnKeyDown="OnCreateKeyPress"
+                    Class="mb-4" />
+        
+        <MudSelect @bind-Value="selectedParentPath" 
+                 Label="Location" 
+                 Variant="Variant.Outlined">
+            <MudSelectItem Value="@("")">Root</MudSelectItem>
+            @foreach (var dir in GetDirectories())
+            {
+                <MudSelectItem Value="@dir.Path">@dir.Path</MudSelectItem>
+            }
+        </MudSelect>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CancelCreate">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="CreateItem">Create</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<!-- Rename Dialog -->
+<MudDialog @bind-IsVisible="showRenameDialog" Options="dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-3" />
+            Rename @(fileToRename?.IsDirectory == true ? "Folder" : "File")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudTextField @bind-Value="renameValue" 
+                    Label="New Name" 
+                    Variant="Variant.Outlined"
+                    OnKeyDown="OnRenameKeyPress" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CancelRename">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="ConfirmRename">Rename</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private string searchFilter = "";
+    private bool showCreateDialog = false;
+    private bool isCreatingFolder = false;
+    private string newItemName = "";
+    private string selectedParentPath = "";
+    
+    private bool showRenameDialog = false;
+    private ExamFile? fileToRename = null;
+    private string renameValue = "";
+    
+    private HashSet<string> expandedDirectories = new();
+    private bool _disposed = false;
+
+    private DialogOptions dialogOptions = new() { MaxWidth = MaxWidth.Small, FullWidth = true };
+
+    protected override void OnInitialized()
+    {
+        ExamState.OnChange += StateHasChanged;
+        
+        // Expand all directories by default
+        foreach (var file in ExamState.Files.Where(f => f.IsDirectory))
+        {
+            expandedDirectories.Add(file.Path);
+        }
+    }
+
+    private bool IsExpanded(string directoryPath)
+    {
+        return expandedDirectories.Contains(directoryPath);
+    }
+
+    private void ToggleDirectory(string directoryPath)
+    {
+        if (expandedDirectories.Contains(directoryPath))
+        {
+            expandedDirectories.Remove(directoryPath);
+        }
+        else
+        {
+            expandedDirectories.Add(directoryPath);
+        }
+        StateHasChanged();
+    }
+
+    private List<ExamFile> GetFilteredRootFiles()
+    {
+        var rootFiles = GetRootFiles();
+        
+        if (string.IsNullOrWhiteSpace(searchFilter))
+            return rootFiles;
+        
+        return rootFiles.Where(f => 
+            f.Name.Contains(searchFilter, StringComparison.OrdinalIgnoreCase) ||
+            (f.IsDirectory && f.Children.Any(c => c.Name.Contains(searchFilter, StringComparison.OrdinalIgnoreCase)))
+        ).ToList();
+    }
+
+    private List<ExamFile> GetRootFiles()
+    {
+        var rootFiles = new List<ExamFile>();
+        var directories = new Dictionary<string, ExamFile>();
+        
+        foreach (var file in ExamState.Files)
+        {
+            var pathParts = file.Path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            
+            if (pathParts.Length == 1)
+            {
+                rootFiles.Add(file);
+            }
+            else
+            {
+                var dirName = pathParts[0];
+                if (!directories.ContainsKey(dirName))
+                {
+                    directories[dirName] = new ExamFile
+                    {
+                        Name = dirName,
+                        Path = dirName,
+                        IsDirectory = true,
+                        Children = new List<ExamFile>()
+                    };
+                    rootFiles.Add(directories[dirName]);
+                }
+                directories[dirName].Children.Add(file);
+            }
+        }
+        
+        return rootFiles.OrderBy(f => f.IsDirectory ? 0 : 1).ThenBy(f => f.Name).ToList();
+    }
+
+    private List<ExamFile> GetDirectories()
+    {
+        return ExamState.Files.Where(f => f.IsDirectory).ToList();
+    }
+
+    private string GetFileIcon(ExamFile file)
+    {
+        if (file.IsDirectory)
+            return Icons.Custom.Uncategorized.Folder;
+        
+        return file.Name.EndsWith(".java") ? Icons.Custom.FileFormats.FileCode : 
+               file.Name.EndsWith(".csv") ? Icons.Material.Filled.TableChart : 
+               file.Name.EndsWith(".txt") ? Icons.Material.Filled.TextSnippet : 
+               Icons.Material.Filled.Description;
+    }
+
+    private void ShowCreateDialog(bool isFolder)
+    {
+        isCreatingFolder = isFolder;
+        newItemName = "";
+        selectedParentPath = "";
+        showCreateDialog = true;
+    }
+
+    private async Task OnCreateKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await CreateItem();
+        }
+        else if (e.Key == "Escape")
+        {
+            CancelCreate();
+        }
+    }
+
+    private async Task CreateItem()
+    {
+        if (string.IsNullOrWhiteSpace(newItemName))
+            return;
+
+        var fullPath = string.IsNullOrEmpty(selectedParentPath) 
+            ? newItemName 
+            : $"{selectedParentPath}/{newItemName}";
+
+        var newFile = new ExamFile
+        {
+            Name = newItemName,
+            Path = fullPath,
+            IsDirectory = isCreatingFolder,
+            Content = isCreatingFolder ? "" : GetDefaultContent(newItemName),
+            Children = isCreatingFolder ? new List<ExamFile>() : new List<ExamFile>()
+        };
+
+        ExamState.Files.Add(newFile);
+        
+        if (!isCreatingFolder)
+        {
+            ExamState.OpenFile(newFile);
+        }
+
+        showCreateDialog = false;
+        StateHasChanged();
+    }
+
+    private string GetDefaultContent(string fileName)
+    {
+        if (fileName.EndsWith(".java"))
+        {
+            var className = Path.GetFileNameWithoutExtension(fileName);
+            return $@"public class {className} {{
+    
+    public static void main(String[] args) {{
+        // TODO: Implement your code here
+        System.out.println(""Hello from {className}!"");
+    }}
+}}";
+        }
+        else if (fileName.EndsWith(".csv"))
+        {
+            return "Column1,Column2,Column3\nValue1,Value2,Value3";
+        }
+        
+        return "";
+    }
+
+    private void CancelCreate()
+    {
+        showCreateDialog = false;
+        newItemName = "";
+        selectedParentPath = "";
+    }
+
+    private void StartRename(ExamFile file)
+    {
+        fileToRename = file;
+        renameValue = file.Name;
+        showRenameDialog = true;
+    }
+
+    private async Task OnRenameKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await ConfirmRename();
+        }
+        else if (e.Key == "Escape")
+        {
+            CancelRename();
+        }
+    }
+
+    private async Task ConfirmRename()
+    {
+        if (fileToRename == null || string.IsNullOrWhiteSpace(renameValue))
+            return;
+
+        var oldPath = fileToRename.Path;
+        var pathParts = oldPath.Split('/');
+        pathParts[^1] = renameValue;
+        var newPath = string.Join("/", pathParts);
+
+        fileToRename.Name = renameValue;
+        fileToRename.Path = newPath;
+
+        showRenameDialog = false;
+        fileToRename = null;
+        StateHasChanged();
+    }
+
+    private void CancelRename()
+    {
+        showRenameDialog = false;
+        fileToRename = null;
+        renameValue = "";
+    }
+
+    private void DeleteFile(ExamFile file)
+    {
+        ExamState.Files.Remove(file);
+        ExamState.CloseFile(file);
+        StateHasChanged();
+    }
+
+    private void DuplicateFile(ExamFile file)
+    {
+        if (file.IsDirectory) return;
+
+        var copyName = $"{Path.GetFileNameWithoutExtension(file.Name)}_copy{Path.GetExtension(file.Name)}";
+        var pathParts = file.Path.Split('/');
+        pathParts[^1] = copyName;
+        var copyPath = string.Join("/", pathParts);
+
+        var duplicate = new ExamFile
+        {
+            Name = copyName,
+            Path = copyPath,
+            Content = file.Content,
+            IsDirectory = false,
+            Children = new List<ExamFile>()
+        };
+
+        ExamState.Files.Add(duplicate);
+        StateHasChanged();
+    }
+
+    private void RefreshFiles()
+    {
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        if (!_disposed)
+        {
+            _disposed = true;
+            if (ExamState != null)
+            {
+                ExamState.OnChange -= StateHasChanged;
+            }
+        }
+    }
+}

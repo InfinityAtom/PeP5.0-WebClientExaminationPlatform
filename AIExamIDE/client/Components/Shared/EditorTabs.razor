@@ -1,0 +1,309 @@
+@implements IDisposable
+@inject ExamState ExamState
+@inject IJSRuntime JSRuntime
+
+<div style="height: 100%; display: flex; flex-direction: column;">
+    <!-- Tab Headers -->
+    @if (ExamState.OpenFiles.Any())
+    {
+        <MudTabs Elevation="2" 
+                Rounded="true" 
+                Centered="false"
+                Color="Color.Primary" 
+                ActivePanelIndex="GetActiveTabIndex()"
+                ActivePanelIndexChanged="OnActiveTabChanged"
+                Style="flex-shrink: 0;">
+            @foreach (var file in ExamState.OpenFiles)
+            {
+                <MudTabPanel Text="@file.Name" 
+                           Icon="@GetFileIcon(file)">
+                    <ChildContent>
+                        <!-- Content handled outside tabs -->
+                    </ChildContent>
+                </MudTabPanel>
+            }
+        </MudTabs>
+    }
+
+    <!-- Editor Content Area -->
+    @if (ExamState.ActiveFile != null)
+    {
+        <!-- Editor Toolbar -->
+        <MudPaper Class="pa-2" Elevation="0" Square="true" Style="border-bottom: 1px solid #e0e0e0; flex-shrink: 0;">
+            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                <MudStack Row AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@GetFileIcon(ExamState.ActiveFile)" />
+                    <MudText Typo="Typo.body2">
+                        Editing: @ExamState.ActiveFile.Name
+                    </MudText>
+                </MudStack>
+                <MudStack Row Spacing="2" AlignItems="AlignItems.Center">
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Text">
+                        @GetLanguage(ExamState.ActiveFile)
+                    </MudChip>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Text">
+                        Lines: @GetLineCount(ExamState.ActiveFile.Content)
+                    </MudChip>
+                    <MudButton StartIcon="@Icons.Material.Filled.Save" 
+                             Size="Size.Small" 
+                             Variant="Variant.Filled" 
+                             Color="Color.Primary"
+                             OnClick="SaveCurrentContent">
+                        Save
+                    </MudButton>
+                    <MudButton StartIcon="@Icons.Material.Filled.FormatAlignLeft" 
+                             Size="Size.Small" 
+                             Variant="Variant.Filled" 
+                             Color="Color.Secondary"
+                             OnClick="FormatCode">
+                        Format
+                    </MudButton>
+                    <MudIconButton Icon="@Icons.Material.Filled.Close" 
+                                 Size="Size.Small" 
+                                 OnClick="() => CloseFile(ExamState.ActiveFile)" />
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+        
+        <!-- Single Ace Editor Container -->
+        <div style="flex-grow: 1; position: relative; min-height: 400px;">
+            <div id="ace-editor-main" 
+                 style="position: absolute; top: 0; left: 0; right: 0; bottom: 0;">
+            </div>
+        </div>
+        
+        <!-- Status Bar -->
+        <MudPaper Class="pa-2" Elevation="0" Square="true" Style="border-top: 1px solid #e0e0e0; flex-shrink: 0;">
+            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.caption">
+                    Characters: @ExamState.ActiveFile.Content.Length
+                </MudText>
+                <MudStack Row Spacing="2" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.caption">@GetLanguage(ExamState.ActiveFile)</MudText>
+                    <MudText Typo="Typo.caption">Ace Editor</MudText>
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" 
+                           Size="Size.Small" 
+                           Color="Color.Success" />
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+    }
+    else
+    {
+        <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center;">
+            <MudStack AlignItems="AlignItems.Center">
+                <MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Large" Color="Color.Default" />
+                <MudText Typo="Typo.h6" Color="Color.Default">Select a file to edit</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Default">Choose a file from the Solution Explorer</MudText>
+            </MudStack>
+        </div>
+    }
+</div>
+
+@code {
+    private Dictionary<string, string> fileContents = new();
+    private ExamFile? lastActiveFile = null;
+    private bool _disposed = false;
+    private bool _isUpdatingEditor = false;
+
+    protected override void OnInitialized()
+    {
+        ExamState.OnChange += OnStateChanged;
+    }
+
+    private void OnStateChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_disposed || _isUpdatingEditor) return;
+
+        // Only update editor if active file changed
+        if (ExamState.ActiveFile != lastActiveFile)
+        {
+            await UpdateEditor();
+            lastActiveFile = ExamState.ActiveFile;
+        }
+    }
+
+    private async Task UpdateEditor()
+    {
+        if (_disposed || ExamState.ActiveFile == null || _isUpdatingEditor) return;
+
+        _isUpdatingEditor = true;
+
+        try
+        {
+            // Save content from previous file if it exists
+            if (lastActiveFile != null)
+            {
+                await SaveEditorContent(lastActiveFile);
+            }
+
+            // Load content for current file
+            var currentFile = ExamState.ActiveFile;
+            var language = GetAceLanguage(currentFile);
+
+            // Get stored content or use file content
+            var content = fileContents.ContainsKey(currentFile.Path) 
+                ? fileContents[currentFile.Path] 
+                : currentFile.Content;
+
+            Console.WriteLine($"🔄 Switching to {currentFile.Name}");
+
+            // Update the single editor with new content
+            await JSRuntime.InvokeVoidAsync("window.updateAceEditor", 
+                "ace-editor-main", 
+                content, 
+                language, 
+                ExamState.IsSubmitted);
+
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error updating editor: {ex.Message}");
+        }
+        finally
+        {
+            _isUpdatingEditor = false;
+        }
+    }
+
+    private async Task SaveEditorContent(ExamFile file)
+    {
+        if (_disposed) return;
+
+        try
+        {
+            var content = await JSRuntime.InvokeAsync<string>("window.getAceEditorContent", "ace-editor-main");
+            if (content != null)
+            {
+                file.Content = content;
+                fileContents[file.Path] = content;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error saving content for {file.Name}: {ex.Message}");
+        }
+    }
+
+    private int GetActiveTabIndex()
+    {
+        if (ExamState.ActiveFile == null) return 0;
+        return ExamState.OpenFiles.IndexOf(ExamState.ActiveFile);
+    }
+
+    private async Task OnActiveTabChanged(int index)
+    {
+        if (_disposed || _isUpdatingEditor) return;
+        
+        if (index >= 0 && index < ExamState.OpenFiles.Count)
+        {
+            var file = ExamState.OpenFiles[index];
+            if (file != ExamState.ActiveFile)
+            {
+                ExamState.SetActiveFile(file);
+            }
+        }
+    }
+
+    private async Task SaveCurrentContent()
+    {
+        if (_disposed || ExamState.ActiveFile == null) return;
+
+        await SaveEditorContent(ExamState.ActiveFile);
+        Console.WriteLine($"💾 Saved {ExamState.ActiveFile.Name} ({ExamState.ActiveFile.Content.Length} characters)");
+    }
+
+    private async Task FormatCode()
+    {
+        if (_disposed || ExamState.ActiveFile?.Name.EndsWith(".java") != true) return;
+
+        await SaveCurrentContent();
+        
+        var formatted = FormatJavaCode(ExamState.ActiveFile.Content);
+        ExamState.ActiveFile.Content = formatted;
+        fileContents[ExamState.ActiveFile.Path] = formatted;
+        
+        await JSRuntime.InvokeVoidAsync("window.setAceEditorContent", "ace-editor-main", formatted);
+    }
+
+    private string FormatJavaCode(string code)
+    {
+        var lines = code.Split('\n');
+        var formatted = new List<string>();
+        var indentLevel = 0;
+        
+        foreach (var line in lines)
+        {
+            var trimmed = line.Trim();
+            
+            if (trimmed.EndsWith("}"))
+                indentLevel = Math.Max(0, indentLevel - 1);
+            
+            formatted.Add(new string(' ', indentLevel * 4) + trimmed);
+            
+            if (trimmed.EndsWith("{"))
+                indentLevel++;
+        }
+        
+        return string.Join("\n", formatted);
+    }
+
+    private string GetFileIcon(ExamFile file)
+    {
+        return file.Name.EndsWith(".java") ? Icons.Custom.FileFormats.FileCode : 
+               file.Name.EndsWith(".csv") ? Icons.Material.Filled.TableChart : 
+               Icons.Material.Filled.Description;
+    }
+
+    private string GetLanguage(ExamFile file)
+    {
+        return file.Name.EndsWith(".java") ? "Java" : 
+               file.Name.EndsWith(".csv") ? "CSV" : "Text";
+    }
+
+    private string GetAceLanguage(ExamFile file)
+    {
+        return file.Name.EndsWith(".java") ? "java" : 
+               file.Name.EndsWith(".csv") ? "text" : "text";
+    }
+
+    private async Task CloseFile(ExamFile file)
+    {
+        if (_disposed) return;
+
+        // Save content before closing
+        if (file == ExamState.ActiveFile)
+        {
+            await SaveEditorContent(file);
+        }
+
+        // Remove from tracking
+        fileContents.Remove(file.Path);
+        
+        ExamState.CloseFile(file);
+    }
+
+    private int GetLineCount(string content)
+    {
+        if (string.IsNullOrEmpty(content)) return 1;
+        return content.Split('\n').Length;
+    }
+
+    public void Dispose()
+    {
+        if (!_disposed)
+        {
+            _disposed = true;
+            
+            if (ExamState != null)
+            {
+                ExamState.OnChange -= OnStateChanged;
+            }
+        }
+    }
+}

@@ -1,0 +1,127 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <link rel="stylesheet" href="css/app.css" />
+    <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
+    <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <HeadOutlet />
+</head>
+
+<body>
+    <Routes />
+
+    <div id="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">🗙</a>
+    </div>
+
+    <script src="_framework/blazor.web.js"></script>
+    <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+    
+    <!-- Ace Editor Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/mode-java.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/theme-monokai.js"></script>
+    
+    <script>
+        window.aceEditor = null;
+
+        window.createAceEditor = function (elementId, content, language, readOnly) {
+            return window.updateAceEditor(elementId, content, language, readOnly);
+        };
+
+        window.updateAceEditor = function (elementId, content, language, readOnly) {
+            return new Promise((resolve, reject) => {
+                try {
+                    const element = document.getElementById(elementId);
+                    if (!element) {
+                        setTimeout(() => window.updateAceEditor(elementId, content, language, readOnly), 50);
+                        return;
+                    }
+
+                    // Create editor if it doesn't exist
+                    if (!window.aceEditor) {
+                        element.innerHTML = '';
+                        window.aceEditor = ace.edit(elementId);
+                        
+                        window.aceEditor.setOptions({
+                            fontSize: "14px",
+                            showLineNumbers: true,
+                            showGutter: true,
+                            highlightActiveLine: true,
+                            wrap: true,
+                            enableBasicAutocompletion: true,
+                            enableLiveAutocompletion: true,
+                            printMargin: false
+                        });
+                    }
+
+                    // Update editor content and settings
+                    window.aceEditor.setTheme("ace/theme/eclipse");
+                    window.aceEditor.session.setMode("ace/mode/" + language);
+                    window.aceEditor.setValue(content || '', -1);
+                    window.aceEditor.setReadOnly(readOnly || false);
+                    
+                    // Force resize
+                    setTimeout(() => {
+                        window.aceEditor.resize();
+                    }, 100);
+                    
+                    resolve();
+                    
+                } catch (error) {
+                    console.error("❌ Error updating Ace editor:", error);
+                    reject(error);
+                }
+            });
+        };
+
+        window.getAceEditorContent = function (elementId) {
+            try {
+                if (window.aceEditor) {
+                    return window.aceEditor.getValue();
+                }
+                return "";
+            } catch (error) {
+                console.error("❌ Error getting Ace editor content:", error);
+                return "";
+            }
+        };
+
+        window.setAceEditorContent = function (elementId, content) {
+            try {
+                if (window.aceEditor) {
+                    window.aceEditor.setValue(content || '', -1);
+                }
+            } catch (error) {
+                console.error("❌ Error setting Ace editor content:", error);
+            }
+        };
+
+        window.destroyAceEditor = function (elementId) {
+            try {
+                if (window.aceEditor) {
+                    window.aceEditor.destroy();
+                    window.aceEditor = null;
+                }
+            } catch (error) {
+                console.error("❌ Error destroying Ace editor:", error);
+            }
+        };
+
+        // Resize editor when window is resized
+        window.addEventListener('resize', function() {
+            if (window.aceEditor && window.aceEditor.resize) {
+                window.aceEditor.resize();
+            }
+        });
+    </script>
+</body>
+
+</html>

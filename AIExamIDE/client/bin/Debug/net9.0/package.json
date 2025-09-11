@@ -1,0 +1,12 @@
+﻿{
+  "name": "aiexamide-client",
+  "version": "1.0.0",
+  "description": "Frontend for AI Exam IDE",
+  "scripts": {
+    "build-css": "tailwindcss -i ./src/input.css -o ./wwwroot/css/app.css",
+    "watch-css": "tailwindcss -i ./src/input.css -o ./wwwroot/css/app.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.0"
+  }
+}
