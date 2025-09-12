@@ -3,30 +3,188 @@
 @inject ApiClient ApiClient
 @inject IJSRuntime JSRuntime
 
-<MudPaper Style="height: 100%;" Square="true" Elevation="0">
-    <div style="height: 100%; overflow-y: auto;">
-        <MudContainer Class="pa-4">
-            <!-- Header -->
-            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
-                <MudText Typo="Typo.h5" Class="font-weight-bold">Tasks</MudText>
-                <MudChip T="string" 
-                         Color="@GetTimerChipColor()" 
-                         Size="Size.Medium" 
-                         Icon="@Icons.Material.Filled.Timer"
-                         Style="font-family: monospace; font-weight: bold;">
-                    @FormatTime(ExamState.TimeRemainingSeconds)
-                </MudChip>
-            </MudStack>
+<style>
+.timer-box {
+    padding: 6px 16px;
+    border-radius: 16px;
+    font-weight: 700;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    letter-spacing: 0.8px;
+    box-shadow: 
+        0 0 0 1px var(--mud-palette-lines-default) inset,
+        0 2px 8px rgba(0, 0, 0, 0.08),
+        0 1px 3px rgba(0, 0, 0, 0.12);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(8px);
+}
 
+.timer-box::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+    pointer-events: none;
+}
+
+.timer-box:hover {
+    transform: translateY(-1px);
+    box-shadow: 
+        0 0 0 1px var(--mud-palette-lines-default) inset,
+        0 4px 16px rgba(0, 0, 0, 0.12),
+        0 2px 6px rgba(0, 0, 0, 0.16);
+}
+
+.timer-text {
+    font-size: 1.4rem;
+    line-height: 1.1;
+    position: relative;
+    z-index: 1;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.timer-ok {
+    background: linear-gradient(135deg, var(--mud-palette-success) 0%, color-mix(in oklab, var(--mud-palette-success) 85%, black) 100%);
+    color: white;
+    border: 1px solid color-mix(in oklab, var(--mud-palette-success) 80%, white);
+}
+
+.timer-warn {
+    background: linear-gradient(135deg, var(--mud-palette-warning) 0%, color-mix(in oklab, var(--mud-palette-warning) 90%, black) 100%);
+    color: white;
+    box-shadow: 
+        0 0 0 2px color-mix(in oklab, var(--mud-palette-warning) 45%, transparent) inset,
+        0 2px 8px rgba(0, 0, 0, 0.08),
+        0 1px 3px rgba(0, 0, 0, 0.12),
+        0 0 20px color-mix(in oklab, var(--mud-palette-warning) 30%, transparent);
+    border: 1px solid color-mix(in oklab, var(--mud-palette-warning) 70%, white);
+}
+
+.timer-crit {
+    background: linear-gradient(135deg, var(--mud-palette-error) 0%, color-mix(in oklab, var(--mud-palette-error) 85%, black) 100%);
+    color: white;
+    border: 1px solid color-mix(in oklab, var(--mud-palette-error) 80%, white);
+    box-shadow: 
+        0 0 0 1px var(--mud-palette-error) inset,
+        0 2px 8px rgba(0, 0, 0, 0.08),
+        0 1px 3px rgba(0, 0, 0, 0.12),
+        0 0 25px color-mix(in oklab, var(--mud-palette-error) 40%, transparent);
+}
+
+.timer-pulse {
+    animation: timer-pulse 1200ms cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.timer-crit.timer-pulse {
+    animation: timer-pulse-urgent 800ms cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+}
+
+@@keyframes timer-pulse {
+    0% { 
+        transform: scale(1);
+        filter: brightness(1);
+    }
+    50% { 
+        transform: scale(1.04);
+        filter: brightness(1.1);
+    }
+    100% { 
+        transform: scale(1);
+        filter: brightness(1);
+    }
+}
+
+@@keyframes timer-pulse-urgent {
+    0% { 
+        transform: scale(1);
+        filter: brightness(1) saturate(1);
+        box-shadow: 
+            0 0 0 1px var(--mud-palette-error) inset,
+            0 2px 8px rgba(0, 0, 0, 0.08),
+            0 1px 3px rgba(0, 0, 0, 0.12),
+            0 0 25px color-mix(in oklab, var(--mud-palette-error) 40%, transparent);
+    }
+    50% { 
+        transform: scale(1.08);
+        filter: brightness(1.15) saturate(1.2);
+        box-shadow: 
+            0 0 0 2px var(--mud-palette-error) inset,
+            0 4px 16px rgba(0, 0, 0, 0.15),
+            0 2px 6px rgba(0, 0, 0, 0.2),
+            0 0 35px color-mix(in oklab, var(--mud-palette-error) 60%, transparent);
+    }
+    100% { 
+        transform: scale(1);
+        filter: brightness(1) saturate(1);
+        box-shadow: 
+            0 0 0 1px var(--mud-palette-error) inset,
+            0 2px 8px rgba(0, 0, 0, 0.08),
+            0 1px 3px rgba(0, 0, 0, 0.12),
+            0 0 25px color-mix(in oklab, var(--mud-palette-error) 40%, transparent);
+    }
+}
+
+/* Optional: Add a subtle loading state */
+.timer-loading {
+    position: relative;
+    overflow: hidden;
+}
+
+.timer-loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    animation: timer-shimmer 2s infinite;
+}
+
+@@keyframes timer-shimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+</style>
+
+<MudPaper Square="true" Elevation="0">
+    <MudStack  Spacing="0">
+        <!-- Header sticky -->
+        <MudPaper Elevation="0"
+                  Class="px-4 py-3"
+                  Style="position:sticky;top:0;z-index:1;background:var(--mud-palette-background);border-bottom:1px solid var(--mud-palette-lines-default);">
+            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.h6" Class="font-weight-bold">Tasks</MudText>
+
+                <!-- TIMER (not a MudChip) -->
+                <MudPaper Elevation="1"
+                          Class="@GetTimerBoxClass()"
+                          Role="status"
+                          AriaLabel="Time remaining">
+                    <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.Timer" />
+                        <MudText Class="timer-text">@FormatTime(ExamState.TimeRemainingSeconds)</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudStack>
+        </MudPaper>
+
+        <!-- Scrollable content -->
+        <MudScrollArea Class="px-4 py-3" Style="height:100%;min-height:0;">
             @if (ExamState.CurrentExam != null)
             {
-                <!-- Current Task Card -->
-                <MudCard Class="mb-4" Elevation="3">
-                    <MudCardHeader>
+                <!-- Current Task -->
+                <MudCard Class="mb-3" Elevation="1" Dense="true">
+                    <MudCardHeader DisableTypography="true">
                         <CardHeaderContent>
                             <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                                <MudText Typo="Typo.h6" Class="font-weight-bold">
-                                    Task @(ExamState.CurrentTaskIndex + 1) of @ExamState.CurrentExam.Tasks.Count
+                                <MudText Typo="Typo.subtitle1" Class="font-weight-bold">
+                                    Task @(ExamState.CurrentTaskIndex + 1) / @ExamState.CurrentExam.Tasks.Count
                                 </MudText>
                                 <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Text">
                                     @GetTaskProgress()
@@ -34,15 +192,19 @@
                             </MudStack>
                         </CardHeaderContent>
                     </MudCardHeader>
-                    <MudCardContent>
+
+                    <MudDivider />
+
+                    <MudCardContent Class="py-2">
                         @if (CurrentTask != null)
                         {
-                            <MudText Typo="Typo.subtitle1" Class="font-weight-medium mb-2">@CurrentTask.Title</MudText>
-                            <MudText Typo="Typo.body2" Class="text-gray-700">@CurrentTask.Description</MudText>
+                            <MudText Typo="Typo.subtitle2" Class="font-weight-medium mb-1">@CurrentTask.Title</MudText>
+                            <MudText Typo="Typo.body2" Class="text-secondary">@CurrentTask.Description</MudText>
                         }
                     </MudCardContent>
-                    <MudCardActions>
-                        <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%;">
+
+                    <MudCardActions Class="px-3 pb-3 pt-0">
+                        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="w-100">
                             <MudButton StartIcon="@Icons.Material.Filled.ArrowBack"
                                        Variant="Variant.Outlined"
                                        Size="Size.Small"
@@ -50,8 +212,10 @@
                                        Disabled="@(ExamState.CurrentTaskIndex == 0)">
                                 Previous
                             </MudButton>
+
                             <MudButton EndIcon="@Icons.Material.Filled.ArrowForward"
                                        Variant="Variant.Outlined"
+                                       Color="Color.Primary"
                                        Size="Size.Small"
                                        OnClick="NextTask"
                                        Disabled="@(ExamState.CurrentTaskIndex >= ExamState.CurrentExam.Tasks.Count - 1)">
@@ -61,31 +225,35 @@
                     </MudCardActions>
                 </MudCard>
 
-                <!-- CSV Data Files Card -->
+                <!-- CSV Data Files -->
                 @if (GetCsvFiles().Any())
                 {
-                    <MudCard Class="mb-4" Elevation="2">
-                        <MudCardHeader>
+                    <MudCard Class="mb-3" Elevation="1" Dense="true">
+                        <MudCardHeader DisableTypography="true">
                             <CardHeaderContent>
                                 <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
                                     <MudIcon Icon="@Icons.Material.Filled.TableChart" Color="Color.Warning" />
-                                    <MudText Typo="Typo.h6" Class="font-weight-medium">CSV Data Files</MudText>
+                                    <MudText Typo="Typo.subtitle1" Class="font-weight-medium">CSV Data Files</MudText>
                                     <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Text">
                                         @GetCsvFiles().Count file(s)
                                     </MudChip>
                                 </MudStack>
                             </CardHeaderContent>
                         </MudCardHeader>
-                        <MudCardContent>
-                            <MudStack Spacing="2">
+
+                        <MudDivider />
+
+                        <MudCardContent Class="py-2">
+                            <MudStack Spacing="1">
                                 @foreach (var csvFile in GetCsvFiles())
                                 {
-                                    <MudPaper Class="pa-3" Elevation="1" Style="border-left: 4px solid var(--mud-palette-warning);">
+                                    <MudPaper Class="pa-2" Elevation="0" Style="border-left:4px solid var(--mud-palette-warning);">
                                         <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
                                             <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
                                                 <MudIcon Icon="@Icons.Material.Filled.TableChart" Size="Size.Small" />
-                                                <MudText Typo="Typo.body1" Class="font-weight-medium">@csvFile.Name</MudText>
+                                                <MudText Typo="Typo.body2" Class="font-weight-medium">@csvFile.Name</MudText>
                                             </MudStack>
+
                                             <MudStack Row Spacing="1">
                                                 <MudButton StartIcon="@Icons.Material.Filled.Visibility"
                                                            Size="Size.Small"
@@ -97,6 +265,7 @@
                                                 <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
                                                                Size="Size.Small"
                                                                Color="Color.Secondary"
+                                                               AriaLabel="Copy path"
                                                                OnClick="() => CopyPath(csvFile.Path)" />
                                             </MudStack>
                                         </MudStack>
@@ -107,73 +276,82 @@
                     </MudCard>
                 }
 
-                <!-- Run Configuration Card -->
+                <!-- Run Configuration -->
                 @if (ExamState.GetRunnableFiles().Any())
                 {
-                    <MudCard Class="mb-4" Elevation="2">
-                        <MudCardHeader>
+                    <MudCard Class="mb-3" Elevation="1" Dense="true">
+                        <MudCardHeader DisableTypography="true">
                             <CardHeaderContent>
                                 <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
                                     <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Color="Color.Success" />
-                                    <MudText Typo="Typo.h6" Class="font-weight-medium">Run Configuration</MudText>
+                                    <MudText Typo="Typo.subtitle1" Class="font-weight-medium">Run Configuration</MudText>
                                 </MudStack>
                             </CardHeaderContent>
                         </MudCardHeader>
-                        <MudCardContent>
-                            <MudStack Spacing="3">
-                                <!-- Current File Status -->
+
+                        <MudDivider />
+
+                        <MudCardContent Class="py-2">
+                            <MudStack Spacing="2">
                                 @if (ExamState.ActiveFile != null && ExamState.HasMainMethod(ExamState.ActiveFile))
                                 {
                                     <MudAlert Severity="Severity.Success" Dense="true">
                                         <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
-                                            <MudText>Current File: <strong>@ExamState.ActiveFile.Name</strong> has main() method</MudText>
+                                            <MudText Typo="Typo.body2">
+                                                Current File:
+                                                <MudText Typo="Typo.body2" Class="font-weight-bold d-inline"> @ExamState.ActiveFile.Name </MudText>
+                                                has main()
+                                            </MudText>
                                         </MudStack>
                                     </MudAlert>
                                 }
 
-                                <!-- File Selection -->
-                                <MudSelect @bind-Value="selectedRunFile" 
-                                           Variant="Variant.Outlined" 
-                                           Dense="true">
-                                    <MudSelectItem Value="@("")">Auto-detect</MudSelectItem>
+                                <MudSelect @bind-Value="selectedRunFile"
+                                           Variant="Variant.Outlined"
+                                           Dense="true"
+                                           >
+                                    <MudSelectItem Value="@("")">Auto detect</MudSelectItem>
                                     @foreach (var file in ExamState.GetRunnableFiles())
                                     {
                                         <MudSelectItem Value="@file.Path">
                                             <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
                                                 <MudIcon Icon="@Icons.Custom.FileFormats.FileCode" Size="Size.Small" />
-                                                <span>@file.Name</span>
+                                                <MudText Typo="Typo.body2">@file.Name</MudText>
                                             </MudStack>
                                         </MudSelectItem>
                                     }
                                 </MudSelect>
 
-                                <!-- Run Info -->
-                                <MudText Typo="Typo.caption" Class="text-gray-600">
+                                <MudText Typo="Typo.caption" Class="text-secondary">
                                     <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Class="mr-1" />
-                                    Will run: <strong>@GetAutoDetectedFile()</strong>
+                                    Will run:
+                                    <MudText Typo="Typo.caption" Class="font-weight-bold d-inline"> @GetAutoDetectedFile() </MudText>
                                 </MudText>
                             </MudStack>
                         </MudCardContent>
                     </MudCard>
                 }
 
-                <!-- Action Buttons Card -->
-                <MudCard Class="mb-4" Elevation="2">
-                    <MudCardHeader>
+                <!-- Actions -->
+                <MudCard Class="mb-3" Elevation="1" Dense="true">
+                    <MudCardHeader DisableTypography="true">
                         <CardHeaderContent>
                             <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
-                                <MudIcon Icon="@Icons.Material.Filled.Settings" Color="Color.Default" />
-                                <MudText Typo="Typo.h6" Class="font-weight-medium">Actions</MudText>
+                                <MudIcon Icon="@Icons.Material.Filled.Settings" />
+                                <MudText Typo="Typo.subtitle1" Class="font-weight-medium">Actions</MudText>
                             </MudStack>
                         </CardHeaderContent>
                     </MudCardHeader>
-                    <MudCardContent>
-                        <MudStack Spacing="2">
+
+                    <MudDivider />
+
+                    <MudCardContent Class="py-2">
+                        <MudStack Spacing="1">
                             <MudButton StartIcon="@Icons.Material.Filled.PlayArrow"
                                        Variant="Variant.Filled"
                                        Color="Color.Success"
                                        FullWidth="true"
-                                       Size="Size.Large"
+                                       Size="Size.Medium"
                                        OnClick="RunCode"
                                        Disabled="@(isRunning || !HasRunnableFile() || ExamState.IsSubmitted)">
                                 @if (isRunning)
@@ -186,7 +364,7 @@
                                     <span>Run @GetRunButtonText()</span>
                                 }
                             </MudButton>
-                            
+
                             <MudButton StartIcon="@Icons.Material.Filled.Refresh"
                                        Variant="Variant.Filled"
                                        Color="Color.Warning"
@@ -195,7 +373,7 @@
                                        Disabled="@ExamState.IsSubmitted">
                                 Reset All Files
                             </MudButton>
-                            
+
                             <MudButton StartIcon="@Icons.Material.Filled.Send"
                                        Variant="Variant.Filled"
                                        Color="Color.Error"
@@ -208,26 +386,29 @@
                     </MudCardContent>
                 </MudCard>
 
-                <!-- Runnable Files Card -->
-                <MudCard Elevation="1">
-                    <MudCardHeader>
+                <!-- Runnable Files -->
+                <MudCard Elevation="1" Dense="true">
+                    <MudCardHeader DisableTypography="true">
                         <CardHeaderContent>
                             <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
                                 <MudIcon Icon="@Icons.Custom.FileFormats.FileCode" Color="Color.Info" />
-                                <MudText Typo="Typo.h6" Class="font-weight-medium">Runnable Files</MudText>
+                                <MudText Typo="Typo.subtitle1" Class="font-weight-medium">Runnable Files</MudText>
                                 <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Text">
                                     @ExamState.GetRunnableFiles().Count() file(s)
                                 </MudChip>
                             </MudStack>
                         </CardHeaderContent>
                     </MudCardHeader>
-                    <MudCardContent>
+
+                    <MudDivider />
+
+                    <MudCardContent Class="py-2">
                         @if (ExamState.GetRunnableFiles().Any())
                         {
-                            <MudStack Spacing="2">
+                            <MudStack Spacing="1">
                                 @foreach (var file in ExamState.GetRunnableFiles())
                                 {
-                                    <MudPaper Class="pa-2" Elevation="1" Style="border-left: 4px solid var(--mud-palette-info);">
+                                    <MudPaper Class="pa-2" Elevation="0" Style="border-left:4px solid var(--mud-palette-info);">
                                         <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
                                             <MudButton StartIcon="@Icons.Custom.FileFormats.FileCode"
                                                        Variant="Variant.Text"
@@ -238,6 +419,7 @@
                                             <MudIconButton Icon="@Icons.Material.Filled.PlayArrow"
                                                            Size="Size.Small"
                                                            Color="Color.Success"
+                                                           AriaLabel="Run this file"
                                                            OnClick="() => RunSpecificFile(file)"
                                                            Disabled="@ExamState.IsSubmitted" />
                                         </MudStack>
@@ -254,8 +436,8 @@
                     </MudCardContent>
                 </MudCard>
             }
-        </MudContainer>
-    </div>
+        </MudScrollArea>
+    </MudStack>
 </MudPaper>
 
 @code {
@@ -274,7 +456,6 @@
         return ExamState.Files.Where(f => !f.IsDirectory && f.Name.EndsWith(".csv")).ToList();
     }
 
-    // New helper methods for better UI
     private string GetTaskProgress()
     {
         if (ExamState.CurrentExam == null) return "0%";
@@ -282,24 +463,18 @@
         return $"{progress}%";
     }
 
-    private Color GetTimerChipColor()
+    private string GetTimerBoxClass()
     {
         if (ExamState.TimeRemainingSeconds <= 60)
-            return Color.Error;
-        else if (ExamState.TimeRemainingSeconds <= 300)
-            return Color.Warning;
-        else
-            return Color.Success;
+            return "timer-box timer-crit timer-pulse";
+        if (ExamState.TimeRemainingSeconds <= 300)
+            return "timer-box timer-warn";
+        return "timer-box timer-ok";
     }
 
-    // CSV Overlay - Now calls Home.razor method
     private void ShowCsvOverlay(ExamFile csvFile)
     {
-        // This will call the ShowCsvOverlay method in Home.razor
-        var home = JSRuntime.InvokeVoidAsync("eval", $"window.blazorCulture.showCsvOverlay('{csvFile.Name}', '{csvFile.Path}', '{csvFile.Content}')");
-        
-        // Alternative: Use a service or event to communicate with Home.razor
-        // For now, we'll use a simple approach through ExamState
+        JSRuntime.InvokeVoidAsync("eval", $"window.blazorCulture.showCsvOverlay('{csvFile.Name}', '{csvFile.Path}', '{csvFile.Content}')");
         ExamState.ShowCsvOverlay(csvFile);
     }
 
@@ -316,23 +491,16 @@
         }
     }
 
-    private bool HasRunnableFile()
-    {
-        return ExamState.GetRunnableFiles().Any();
-    }
+    private bool HasRunnableFile() => ExamState.GetRunnableFiles().Any();
 
     private string GetAutoDetectedFile()
     {
         if (ExamState.ActiveFile != null && ExamState.HasMainMethod(ExamState.ActiveFile))
-        {
             return ExamState.ActiveFile.Name;
-        }
 
         var mainJava = ExamState.GetFileByPath("src/Main.java");
         if (mainJava != null && ExamState.HasMainMethod(mainJava))
-        {
             return "Main.java";
-        }
 
         var firstRunnable = ExamState.GetRunnableFiles().FirstOrDefault();
         return firstRunnable?.Name ?? "None";
@@ -397,20 +565,14 @@
     private ExamFile? GetFileToRun()
     {
         if (!string.IsNullOrEmpty(selectedRunFile))
-        {
             return ExamState.GetFileByPath(selectedRunFile);
-        }
 
         if (ExamState.ActiveFile != null && ExamState.HasMainMethod(ExamState.ActiveFile))
-        {
             return ExamState.ActiveFile;
-        }
 
         var mainJava = ExamState.GetFileByPath("src/Main.java");
         if (mainJava != null && ExamState.HasMainMethod(mainJava))
-        {
             return mainJava;
-        }
 
         return ExamState.GetRunnableFiles().FirstOrDefault();
     }
@@ -452,7 +614,6 @@
     private void PreviousTask()
     {
         if (_disposed) return;
-
         if (ExamState.CurrentTaskIndex > 0)
         {
             ExamState.CurrentTaskIndex--;
@@ -463,7 +624,6 @@
     private void NextTask()
     {
         if (_disposed) return;
-
         if (ExamState.CurrentExam != null && ExamState.CurrentTaskIndex < ExamState.CurrentExam.Tasks.Count - 1)
         {
             ExamState.CurrentTaskIndex++;
@@ -474,7 +634,7 @@
     private string FormatTime(int seconds)
     {
         var timeSpan = TimeSpan.FromSeconds(seconds);
-        return $"{timeSpan.Minutes:D2}:{timeSpan.Seconds:D2}";
+        return $"{timeSpan.Hours:D2}:{timeSpan.Minutes:D2}:{timeSpan.Seconds:D2}";
     }
 
     public void Dispose()

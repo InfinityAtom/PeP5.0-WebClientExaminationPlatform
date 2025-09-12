@@ -16,7 +16,7 @@
 
 @layer components {
   .code-editor {
-    font-family: 'Courier New', monospace;
+    font-family: 'Consolas', monospace;
     font-size: 14px;
     line-height: 1.5;
   }
