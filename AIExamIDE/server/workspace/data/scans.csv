@@ -1,0 +1,25 @@
+ScanID,PatientID,Type,Date,Findings
+S001,P001,MRI,2023-05-12,Normal
+S002,P002,CT,2023-06-15,Anomaly detected
+S003,P003,X-Ray,2023-07-18,Arthritic changes
+S004,P004,MRI,2023-08-20,Plaque buildup
+S005,P005,CT,2023-09-22,Normal
+S006,P001,MRI,2023-10-24,Minor issue
+S007,P006,X-Ray,2023-11-26,Diabetic changes
+S008,P007,MRI,2023-12-30,Significant arthritis
+S009,P008,CT,2024-01-02,Normal
+S010,P009,X-Ray,2024-02-05,Hypertensive changes
+S011,P010,MRI,2024-03-08,Normal
+S012,P011,CT,2024-04-10,Osteoarthritic changes
+S013,P012,X-Ray,2024-05-12,Normal
+S014,P013,MRI,2024-06-14,Hypertensive changes
+S015,P014,CT,2024-07-16,Anomaly detected
+S016,P015,X-Ray,2024-08-18,Arthritic changes
+S017,P001,MRI,2024-09-20,Normal
+S018,P002,CT,2024-10-22,Improvement observed
+S019,P003,X-Ray,2024-11-24,Progression
+S020,P004,MRI,2024-12-26,Normal
+S021,P005,CT,2025-01-28,Minor issue
+S022,P006,X-Ray,2025-02-30,Diabetic changes
+S023,P007,MRI,2025-03-02,Significant arthritis
+S024,P008,CT,2025-04-04,Plaque buildup

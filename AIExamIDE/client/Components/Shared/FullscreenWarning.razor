@@ -1,0 +1,92 @@
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
+@inject IJSRuntime JSRuntime
+
+@if (ShowWarning)
+{
+    <MudOverlay Visible="true" DarkBackground="true" Absolute="false" ZIndex="9999">
+        <MudPaper Class="pa-8 ma-4" Style="max-width: 500px; text-align: center;" Elevation="24">
+            <MudIcon Icon="@Icons.Material.Filled.Warning" 
+                     Size="Size.Large" 
+                     Color="Color.Warning" 
+                     Style="font-size: 4rem; margin-bottom: 1rem;" />
+            
+            <MudText Typo="Typo.h4" Color="Color.Error" GutterBottom="true">
+                Fullscreen Required
+            </MudText>
+            
+            <MudText Typo="Typo.body1" Class="mb-4">
+                This exam must be taken in fullscreen mode for security purposes.
+            </MudText>
+            
+            <MudText Typo="Typo.body2" Class="mb-4">
+                Please press <MudChip T="string" Size="Size.Small" Color="Color.Info">F11</MudChip> 
+                or click the button below to enter fullscreen mode.
+            </MudText>
+            
+            <MudButton Variant="Variant.Filled" 
+                       Color="Color.Primary" 
+                       Size="Size.Large"
+                       StartIcon="@Icons.Material.Filled.Fullscreen"
+                       OnClick="RequestFullscreen"
+                       Class="mb-4">
+                Enter Fullscreen
+            </MudButton>
+            
+            <MudAlert Severity="Severity.Warning" Dense="true">
+                <MudText Typo="Typo.caption">
+                    You cannot proceed with the exam until fullscreen mode is activated.
+                </MudText>
+            </MudAlert>
+        </MudPaper>
+    </MudOverlay>
+}
+
+@code {
+    [Parameter] public bool ShowWarning { get; set; } = true;
+    [Parameter] public EventCallback<bool> ShowWarningChanged { get; set; }
+
+    private DotNetObjectReference<FullscreenWarning>? _dotnetRef;
+    private bool _initializedJs = false;
+    private bool _lastShowWarning;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+{
+    if (firstRender && !_initializedJs)
+    {
+        _dotnetRef = DotNetObjectReference.Create(this);
+        await JSRuntime.InvokeVoidAsync("initializeFullscreenMonitor", _dotnetRef);
+        _initializedJs = true;
+    }
+
+    if (_lastShowWarning != ShowWarning)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("toggleNoFullscreenClass", ShowWarning);
+        }
+        catch { /* ignori dacă nu e încă disponibilă, următorul render o prinde */ }
+        _lastShowWarning = ShowWarning;
+    }
+}
+
+
+    [JSInvokable]
+    public async Task OnFullscreenChanged(bool isFullscreen)
+    {
+        ShowWarning = !isFullscreen;
+        await ShowWarningChanged.InvokeAsync(ShowWarning);
+        StateHasChanged();
+    }
+
+    private async Task RequestFullscreen()
+    {
+        await JSRuntime.InvokeVoidAsync("requestFullscreen");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JSRuntime.InvokeVoidAsync("disposeFullscreenMonitor"); } catch { }
+        _dotnetRef?.Dispose();
+    }
+}

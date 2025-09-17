@@ -1,0 +1,21 @@
+ReportID,PatientID,ImagingType,Findings
+R001,P001,MRI,Normal
+R002,P002,CT,Mild anomalies
+R003,P003,X-Ray,Fracture detected
+R004,P004,Ultrasound,Cyst found
+R005,P005,MRI,Normal
+R006,P006,CT,Enlarged organ
+R007,P007,X-Ray,Slight deformation
+R008,P008,Ultrasound,Normal
+R009,P009,MRI,Abnormal tissue growth
+R010,P010,CT,Normal
+R011,P011,X-Ray,Minor fracture
+R012,P012,Ultrasound,Fluid buildup
+R013,P013,MRI,Normal
+R014,P014,CT,Lesion detected
+R015,P015,Ultrasound,Normal
+R016,P001,CT,Scar tissue
+R017,P005,X-Ray,Dislocation
+R018,P009,MRI,Normal
+R019,P011,CT,Abnormal density
+R020,P013,Ultrasound,Swelling noted

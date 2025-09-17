@@ -1,0 +1,16 @@
+PlantID,Name,CapacityMW,Region
+P001,Solar Farm Alpha,50,North
+P002,Wind Park Beta,75,East
+P003,Hydro Station Gamma,100,South
+P004,Biomass Unit Delta,60,West
+P005,Geothermal Plant Epsilon,40,North
+P006,Solar Farm Zeta,55,East
+P007,Wind Park Eta,65,South
+P008,Hydro Station Theta,90,West
+P009,Biomass Unit Iota,70,North
+P010,Geothermal Plant Kappa,45,East
+P011,Solar Farm Lambda,60,South
+P012,Wind Park Mu,80,West
+P013,Hydro Station Nu,95,North
+P014,Biomass Unit Xi,50,East
+P015,Geothermal Plant Omicron,55,South

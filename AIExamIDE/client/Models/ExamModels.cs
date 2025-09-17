@@ -5,7 +5,7 @@ public class ExamMetadata
     public string Domain { get; set; } = "";
     public string Overview { get; set; } = "";
     public List<ExamTask> Tasks { get; set; } = new();
-    public int? Duration { get; set; } = 60; // Duration in minutes, default to 60
+    public int? Duration { get; set; } = 50; // Duration in minutes, default to 60
 }
 
 public class ExamTask

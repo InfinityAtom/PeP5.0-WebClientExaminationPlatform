@@ -1,0 +1,26 @@
+@using MudBlazor
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudAlert Severity="Severity.Warning" Dense="true">
+                Are you sure you want to delete <strong>@Path</strong>?
+            </MudAlert>
+
+            <MudStack Row Justify="Justify.FlexEnd" Spacing="1">
+                <MudButton Variant="Variant.Text" OnClick="@Cancel">Cancel</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="@Confirm">Delete</MudButton>
+            </MudStack>
+        </MudStack>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [CascadingParameter] public MudBlazor.IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string Path { get; set; } = string.Empty;
+
+    private void Confirm() => MudDialog.Close(DialogResult.Ok(new DeleteFileResult(Path, true)));
+    private void Cancel() => MudDialog.Cancel();
+
+    public record DeleteFileResult(string Path, bool Confirmed);
+}

@@ -1,0 +1,16 @@
+PatientID,Name,Age,Diagnosis
+P001,John Doe,45,Hemophilia
+P002,Jane Smith,38,Sickle Cell Anemia
+P003,Emily Johnson,50,Thalassemia
+P004,Michael Brown,60,Cystic Fibrosis
+P005,Jessica Davis,32,Hemophilia
+P006,David Wilson,29,Sickle Cell Anemia
+P007,Sarah Lee,40,Thalassemia
+P008,Daniel Harris,45,Cystic Fibrosis
+P009,Laura Martinez,52,Hemophilia
+P010,James Clark,36,Sickle Cell Anemia
+P011,Sophia Lewis,28,Thalassemia
+P012,William Allen,47,Cystic Fibrosis
+P013,Olivia Adams,31,Hemophilia
+P014,Lucas Scott,44,Sickle Cell Anemia
+P015,Emma King,53,Thalassemia

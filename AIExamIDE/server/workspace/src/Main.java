@@ -1,53 +1,29 @@
+import java.io.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Autonomous Drones for Inspection
+ * The deployment of autonomous drones for infrastructure inspection has become pivotal in ensuring the integrity and safety of structures. These drones conduct various types of inspections, including structural, aerial, and thermal. Analyzing the performance and efficiency of these drones is critical for improving operational effectiveness and resource allocation.
+ */
 public class Main {
     public static void main(String[] args) {
-        System.out.println("=== Retail Inventory Management System ===\n");
+        System.out.println("=== Autonomous Drones for Inspection ===\n");
         
-        // Load products from CSV
-        List<Product> products = Product.loadFromCSV("../data/products.csv");
+        // TODO: Implement the following tasks:
         
-        // Task 1 - Display all products
-        System.out.println("Task 1: All Products");
-        for (Product product : products) {
-            System.out.println(product);
-        }
+        // Task 1: Load the drone and inspection data from their respective CSV files in the src/ folder. Filter the in...
         
-        System.out.println("\n" + "=".repeat(50) + "\n");
+        // Task 2: Analyze the relationship between drones and the number of inspections they have conducted. Display a...
         
-        // Task 2 - Filter products by Electronics category
-        System.out.println("Task 2: Electronics Products");
-        products.stream()
-            .filter(p -> "Electronics".equals(p.getCategory()))
-            .forEach(System.out::println);
+        // Task 3: Implement an advanced sorting mechanism that organizes the inspections by date and then by duration....
         
-        System.out.println("\n" + "=".repeat(50) + "\n");
+        // Task 4: Create complex data structures to perform statistical analysis on the inspection durations. Calculat...
         
-        // Task 3 - Sort products by price (ascending)
-        System.out.println("Task 3: Products Sorted by Price");
-        products.stream()
-            .sorted((p1, p2) -> Double.compare(p1.getPrice(), p2.getPrice()))
-            .forEach(System.out::println);
-        
-        System.out.println("\n" + "=".repeat(50) + "\n");
-        
-        // Task 4 - Calculate statistics
-        System.out.println("Task 4: Statistics");
-        double totalValue = products.stream()
-            .mapToDouble(p -> p.getPrice() * p.getStock())
-            .sum();
-        System.out.println("Total Inventory Value: $" + String.format("%.2f", totalValue));
-        
-        Map<String, Double> avgPriceByCategory = products.stream()
-            .collect(Collectors.groupingBy(
-                Product::getCategory,
-                Collectors.averagingDouble(Product::getPrice)
-            ));
-        
-        System.out.println("Average Price by Category:");
-        avgPriceByCategory.forEach((category, avgPrice) -> 
-            System.out.println("  " + category + ": $" + String.format("%.2f", avgPrice))
-        );
+        System.out.println("Please implement the required tasks!");
+        System.out.println("Check the Tasks panel for detailed requirements.");
+        System.out.println("Remember to work ONLY in the src/ folder for any file operations.");
+        System.out.println("CSV files are available in the same directory as this file.");
+        System.out.println("\n*** IMPORTANT: Display ALL results on screen only - DO NOT save parsed data to files ***");
     }
 }

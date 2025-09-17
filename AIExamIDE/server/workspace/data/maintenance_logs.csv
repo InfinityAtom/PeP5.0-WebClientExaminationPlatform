@@ -1,0 +1,25 @@
+LogID,MachineID,Date,Issue
+L001,M002,2023-01-15,Nozzle Replacement
+L002,M010,2023-02-20,Servo Motor Fault
+L003,M006,2023-03-10,Calibration Required
+L004,M014,2023-04-05,Software Update
+L005,M002,2023-04-18,Belt Tension
+L006,M010,2023-05-12,Sensor Replacement
+L007,M004,2023-06-01,Lubrication
+L008,M007,2023-07-14,Mirror Alignment
+L009,M012,2023-08-20,Power Supply Check
+L010,M006,2023-09-05,Hydraulic Leak
+L011,M015,2023-09-30,Bearing Replacement
+L012,M008,2023-10-10,Coolant System Clean
+L013,M009,2023-10-22,Firmware Update
+L014,M002,2023-11-03,Filter Change
+L015,M001,2023-11-15,Chip Removal
+L016,M005,2023-12-01,Extruder Jam
+L017,M013,2023-12-10,Platform Leveling
+L018,M004,2023-12-22,Drive Belt Adjustment
+L019,M011,2023-12-30,Controller Fault
+L020,M003,2024-01-15,Lens Replacement
+L021,M006,2024-01-28,Actuator Check
+L022,M002,2024-02-05,Servo Calibration
+L023,M010,2024-02-15,Gearbox Maintenance
+L024,M014,2024-02-22,Network Diagnostics

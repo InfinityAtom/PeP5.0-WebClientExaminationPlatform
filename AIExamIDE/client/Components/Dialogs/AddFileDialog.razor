@@ -1,0 +1,70 @@
+@using MudBlazor
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="_form">
+            <MudStack Spacing="2">
+                <MudSelect T="string" Label="Directory" Dense="true" @bind-Value="_dir">
+                    <MudSelectItem Value="@string.Empty">Root</MudSelectItem>
+                    @foreach (var dir in Directories.Where(d => !string.IsNullOrWhiteSpace(d)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(d => d))
+                    {
+                        <MudSelectItem Value="@dir">@dir</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudTextField @bind-Value="_name"
+                              Label="File name"
+                              Dense="true"
+                              Immediate="true"
+                              Error="@(!string.IsNullOrEmpty(_nameError))"
+                              ErrorText="@_nameError" />
+
+                <MudTextField @bind-Value="_content"
+                              Label="Initial content (optional)"
+                              Lines="6" />
+
+                <MudStack Row Justify="Justify.FlexEnd" Spacing="1">
+                    <MudButton Variant="Variant.Text" OnClick="@Cancel">Cancel</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@Submit">Create</MudButton>
+                </MudStack>
+            </MudStack>
+        </MudForm>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [CascadingParameter] public MudBlazor.IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string Title { get; set; } = "Add a new file";
+    [Parameter] public List<string> Directories { get; set; } = new();
+    [Parameter] public string DefaultDirectory { get; set; } = "";
+
+    private MudForm? _form;
+    private string _dir = "";
+    private string _name = "";
+    private string _content = "";
+    private string? _nameError;
+
+    protected override void OnInitialized()
+    {
+        // dacă nu ai folder implicit, încearcă primul din listă
+        _dir = string.IsNullOrWhiteSpace(DefaultDirectory)
+            ? Directories.FirstOrDefault() ?? ""
+            : DefaultDirectory;
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task Submit()
+    {
+        await _form!.Validate();
+        _nameError = string.IsNullOrWhiteSpace(_name) ? "File name is required" : null;
+        if (!string.IsNullOrEmpty(_nameError)) return;
+
+        MudDialog.Close(DialogResult.Ok(new AddFileResult(_dir, _name, _content)));
+    }
+
+    public record AddFileResult(string Directory, string FileName, string? InitialContent)
+    {
+        public string FullPath => string.IsNullOrWhiteSpace(Directory) ? FileName : $"{Directory}/{FileName}";
+    }
+}

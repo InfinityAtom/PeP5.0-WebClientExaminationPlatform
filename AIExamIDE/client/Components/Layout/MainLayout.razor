@@ -29,6 +29,11 @@
         width: 100%;
         z-index: 1000;
     }
+    .app-shell.blocked {
+    filter: blur(25px);
+    pointer-events: none;
+    user-select: none;
+}
 
     #blazor-error-ui .dismiss {
         cursor: pointer;

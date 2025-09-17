@@ -1,0 +1,22 @@
+OperationID,RobotID,Task,Duration
+O101,R001,Assemble Widget A,120
+O102,R002,Pack Box B,60
+O103,R003,Weld Part X,180
+O104,R004,Inspect Item C,90
+O105,R005,Assemble Widget B,110
+O106,R006,Pack Box A,65
+O107,R007,Inspect Frame D,80
+O108,R008,Weld Part Y,200
+O109,R009,Assemble Widget C,130
+O110,R010,Quality Check Z,95
+O111,R011,Pack Box C,55
+O112,R012,Inspect Item E,85
+O113,R001,Assemble Widget D,140
+O114,R005,Assemble Widget E,125
+O115,R008,Weld Part Z,190
+O116,R002,Pack Box D,70
+O117,R007,Inspect Frame F,75
+O118,R006,Pack Box E,68
+O119,R004,Quality Check X,100
+O120,R009,Assemble Widget F,150
+O121,R003,Weld Part W,175

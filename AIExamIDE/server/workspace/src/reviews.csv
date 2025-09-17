@@ -1,0 +1,26 @@
+ReviewID,ProductID,Rating,Comment
+R001,P001,4.5,Very efficient
+R002,P002,4.0,Highly reliable
+R003,P003,4.7,Excellent precision
+R004,P004,3.9,Good value for money
+R005,P005,4.2,Fast processing
+R006,P006,4.4,Robust and durable
+R007,P007,4.1,Accurate readings
+R008,P008,3.8,Affordable and reliable
+R009,P009,4.6,Outstanding performance
+R010,P010,4.3,Versatile application
+R011,P011,4.0,Efficient and safe
+R012,P012,3.9,Reliable under harsh conditions
+R013,P013,4.2,Smooth operation
+R014,P014,4.5,Consistent performance
+R015,P015,4.6,High accuracy
+R016,P001,4.1,Reliable
+R017,P002,4.2,Great results
+R018,P003,4.8,Highly efficient
+R019,P004,3.7,Good but expensive
+R020,P005,4.4,Fast and accurate
+R021,P006,4.5,Reliable
+R022,P007,4.3,Precise measurements
+R023,P008,3.6,Affordable entry-level
+R024,P009,4.7,Exceptional performance
+R025,P010,4.4,Durable and efficient

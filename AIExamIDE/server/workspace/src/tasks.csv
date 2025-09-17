@@ -1,0 +1,21 @@
+TaskID,RobotID,Task
+T001,R001,Pick and Place
+T002,R002,Quality Inspection
+T003,R003,Welding
+T004,R004,Assembly
+T005,R005,Packaging
+T006,R006,Sorting
+T007,R007,Maintenance
+T008,R008,Transport
+T009,R009,Cleaning
+T010,R010,Calibration
+T011,R011,Inspection
+T012,R012,Pick and Place
+T013,R013,Welding
+T014,R014,Assembly
+T015,R015,Packaging
+T016,R001,Transport
+T017,R002,Quality Inspection
+T018,R003,Maintenance
+T019,R004,Calibration
+T020,R005,Cleaning

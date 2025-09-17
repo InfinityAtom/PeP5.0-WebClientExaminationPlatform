@@ -1,0 +1,26 @@
+RecordID,VehicleID,ServiceType,Date
+R001,V001,Oil Change,2023-01-15
+R002,V002,Tire Rotation,2023-02-21
+R003,V003,Brake Inspection,2023-03-10
+R004,V004,Battery Check,2023-04-05
+R005,V005,Transmission Repair,2023-05-20
+R006,V006,Oil Change,2023-06-12
+R007,V007,Tire Replacement,2023-07-08
+R008,V008,Engine Tuning,2023-08-15
+R009,V009,Brake Replacement,2023-09-11
+R010,V010,Oil Change,2023-10-05
+R011,V011,Battery Replacement,2023-11-03
+R012,V012,Transmission Check,2023-12-01
+R013,V013,Tire Rotation,2024-01-07
+R014,V014,Brake Inspection,2024-02-14
+R015,V015,Engine Repair,2024-03-22
+R016,V001,Oil Change,2024-04-15
+R017,V002,Battery Check,2024-05-21
+R018,V003,Tire Replacement,2024-06-10
+R019,V004,Brake Replacement,2024-07-05
+R020,V005,Engine Tuning,2024-08-15
+R021,V006,Oil Change,2024-09-12
+R022,V007,Transmission Repair,2024-10-08
+R023,V008,Brake Inspection,2024-11-15
+R024,V009,Battery Replacement,2024-12-11
+R025,V010,Engine Repair,2025-01-05

@@ -1,0 +1,45 @@
+@using MudBlazor
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="_form">
+            <MudStack Spacing="2">
+                <MudTextField @bind-Value="_newPath"
+                              Label="New path"
+                              Dense="true"
+                              Immediate="true"
+                              Error="@(!string.IsNullOrEmpty(_err))"
+                              ErrorText="@_err" />
+
+                <MudStack Row Justify="Justify.FlexEnd" Spacing="1">
+                    <MudButton Variant="Variant.Text" OnClick="@Cancel">Cancel</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@Submit">Rename</MudButton>
+                </MudStack>
+            </MudStack>
+        </MudForm>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [CascadingParameter] public MudBlazor.IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string OriginalPath { get; set; } = string.Empty;
+
+    private MudForm? _form;
+    private string _newPath = string.Empty;
+    private string? _err;
+
+    protected override void OnInitialized() => _newPath = OriginalPath;
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task Submit()
+    {
+        await _form!.Validate();
+        _err = string.IsNullOrWhiteSpace(_newPath) ? "New path required" : null;
+        if (!string.IsNullOrEmpty(_err)) return;
+
+        MudDialog.Close(DialogResult.Ok(new RenameFileResult(OriginalPath, _newPath)));
+    }
+
+    public record RenameFileResult(string OriginalPath, string NewPath);
+}

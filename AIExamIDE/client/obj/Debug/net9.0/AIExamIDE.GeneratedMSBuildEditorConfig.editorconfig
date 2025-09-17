@@ -27,6 +27,18 @@ build_property.EnableCodeStyleSeverity =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xBcHAucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Dialogs/AddFileDialog.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xEaWFsb2dzXEFkZEZpbGVEaWFsb2cucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Dialogs/DeleteFileDialog.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xEaWFsb2dzXERlbGV0ZUZpbGVEaWFsb2cucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Dialogs/RenameFileDialog.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xEaWFsb2dzXFJlbmFtZUZpbGVEaWFsb2cucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Counter.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xDb3VudGVyLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
@@ -53,6 +65,10 @@ build_metadata.AdditionalFiles.CssScope =
 
 [C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Shared/EditorTabs.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcRWRpdG9yVGFicy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Shared/FullscreenWarning.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcRnVsbHNjcmVlbldhcm5pbmcucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Shared/SolutionExplorer.razor]

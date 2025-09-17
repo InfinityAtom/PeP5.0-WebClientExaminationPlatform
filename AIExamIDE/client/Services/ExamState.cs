@@ -14,7 +14,7 @@ namespace AIExamIDE.Services
         public List<ExamFile> OpenFiles { get; private set; } = new();
         public ExamFile? ActiveFile { get; private set; }
         public int CurrentTaskIndex { get; set; } = 0;
-        public int TimeRemainingSeconds { get; private set; } = 3600; // 1 hour default
+        public int TimeRemainingSeconds { get; private set; } = 3000; 
         public bool IsSubmitted { get; private set; } = false;
         public string ConsoleOutput { get; private set; } = "Ready to run code...";
 

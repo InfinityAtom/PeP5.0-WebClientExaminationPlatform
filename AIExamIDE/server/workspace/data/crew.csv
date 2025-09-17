@@ -1,0 +1,26 @@
+CrewID,Name,Role,MissionID
+C001,Alice Carter,Commander,M001
+C002,Bob Evans,Pilot,M001
+C003,Charlie Kim,Engineer,M002
+C004,Dana Lee,Scientist,M002
+C005,Eliot Moore,Commander,M003
+C006,Fay Nguyen,Pilot,M004
+C007,Grace Patel,Scientist,M004
+C008,Hank Reed,Engineer,M005
+C009,Ivy Scott,Commander,M006
+C010,Jack Tran,Pilot,M007
+C011,Karen Wright,Engineer,M008
+C012,Leo Young,Scientist,M009
+C013,Mia Zhou,Commander,M010
+C014,Nina Allen,Pilot,M011
+C015,Oscar Brown,Engineer,M012
+C016,Paul Clark,Scientist,M013
+C017,Quinn Davis,Commander,M014
+C018,Rita Lewis,Pilot,M015
+C019,Sam Miller,Engineer,M001
+C020,Tina Nelson,Scientist,M003
+C021,Uma O'Brien,Engineer,M005
+C022,Victor Lopez,Pilot,M006
+C023,Will Parker,Commander,M007
+C024,Xena Qin,Scientist,M008
+C025,Yara Singh,Pilot,M009

@@ -474,7 +474,6 @@
 
     private void ShowCsvOverlay(ExamFile csvFile)
     {
-        JSRuntime.InvokeVoidAsync("eval", $"window.blazorCulture.showCsvOverlay('{csvFile.Name}', '{csvFile.Path}', '{csvFile.Content}')");
         ExamState.ShowCsvOverlay(csvFile);
     }
 

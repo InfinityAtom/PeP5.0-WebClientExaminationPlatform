@@ -20,6 +20,16 @@
         <a href="" class="reload">Reload</a>
         <a class="dismiss">🗙</a>
     </div>
+<script src="js/fullscreen.js?v=4"></script>
+<script src="js/watermark.js?v=4"></script>
+<script src="js/wm-pulse.js?v=2"></script>
+<script src="js/screenshot-guard.js?v=2"></script>
+
+
+    <script src="js/guard.js"></script>
+<script src="js/tablock.js"></script>
+<script src="js/telemetry.js"></script>
+
 
     <script src="_framework/blazor.web.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
@@ -31,7 +41,32 @@
     
     <script>
         window.aceEditor = null;
-
+        function hookPasteGuard() {
+    if (!window.aceEditor || window.__acePasteGuard) return;
+    window.__acePasteGuard = true;
+    window.aceEditor.on("paste", function(text) {
+      try{
+        const len = (text || "").length;
+        if (len >= 500) {
+          // trimite telemetrie
+          navigator.sendBeacon(`${location.origin}/telemetry?sid=${encodeURIComponent(localStorage.getItem('sid')||'session')}`,
+            JSON.stringify({ evt:"paste", size: len, ts: Date.now() }));
+          // opțional: confirm
+          if (!confirm(`You are pasting ${len} characters. Continue?`)) {
+            window.aceEditor.undo();
+          }
+        }
+      }catch{}
+    });
+  }
+  // apelează după fiecare update al editorului
+  window.updateAceEditor = (function(orig){
+    return function(...args){
+      const p = orig.apply(this, args);
+      Promise.resolve(p).then(()=> hookPasteGuard());
+      return p;
+    }
+  })(window.updateAceEditor);
         window.createAceEditor = function (elementId, content, language, readOnly) {
             return window.updateAceEditor(elementId, content, language, readOnly);
         };
@@ -63,7 +98,7 @@
                     }
 
                     // Update editor content and settings
-                    window.aceEditor.setTheme("ace/theme/eclipse");
+                    window.aceEditor.setTheme("ace/theme/monokai");
                     window.aceEditor.session.setMode("ace/mode/" + language);
                     window.aceEditor.setValue(content || '', -1);
                     window.aceEditor.setReadOnly(readOnly || false);
@@ -122,6 +157,13 @@
             }
         });
     </script>
+    <script>
+  window.sendBeaconText = function (url, data) {
+    try { return navigator.sendBeacon(url, data); } catch { return false; }
+  };
+</script>
+
 </body>
+<div id="print-block" style="display:none">Printing disabled during exam</div>
 
 </html>

@@ -1,0 +1,16 @@
+VehicleID,Make,Model,Year
+V001,Tesla,Model S,2022
+V002,Ford,Mustang Mach-E,2021
+V003,Chevrolet,Bolt EV,2020
+V004,Nissan,Leaf,2022
+V005,BMW,i3,2021
+V006,Audi,E-Tron,2020
+V007,Hyundai,Kona Electric,2019
+V008,Kia,Soul EV,2019
+V009,Jaguar,I-Pace,2022
+V010,Volkswagen,ID.4,2021
+V011,Porsche,Taycan,2022
+V012,Polestar,Polestar 2,2020
+V013,Rivian,R1T,2021
+V014,Lucid,Air,2022
+V015,NIO,ES8,2021
