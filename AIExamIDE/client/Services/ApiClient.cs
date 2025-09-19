@@ -1,5 +1,6 @@
 using AIExamIDE.Models;
 using System.Text.Json;
+using System.Linq;
 
 namespace AIExamIDE.Services;
 
@@ -53,5 +54,25 @@ public class ApiClient
         
         var response = await _httpClient.PostAsync("/submit", content);
         response.EnsureSuccessStatusCode();
+    }
+
+    public async Task<EvaluationResult> EvaluateAsync(List<ExamFile> files, ExamMetadata exam)
+    {
+        var csvNames = files.Where(f => !f.IsDirectory && f.Name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+                            .Select(f => f.Name)
+                            .Distinct()
+                            .ToList();
+
+        var req = new { Files = files, Exam = new {
+            domain = exam.Domain,
+            overview = exam.Overview,
+            csv_files = csvNames
+        }};
+        var json = JsonSerializer.Serialize(req, _jsonOptions);
+        var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+        var response = await _httpClient.PostAsync("/evaluate", content);
+        response.EnsureSuccessStatusCode();
+        var responseJson = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<EvaluationResult>(responseJson, _jsonOptions)!;
     }
 }

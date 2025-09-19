@@ -2,6 +2,7 @@
 @inject ExamState ExamState
 @inject ApiClient ApiClient
 @inject IJSRuntime JSRuntime
+@inject NavigationManager Nav
 
 <style>
 .timer-box {
@@ -174,8 +175,8 @@
             </MudStack>
         </MudPaper>
 
-        <!-- Scrollable content -->
-        <MudScrollArea Class="px-4 py-3" Style="height:100%;min-height:0;">
+    <!-- Scrollable content -->
+    <div class="px-4 py-3" style="height:100%;min-height:0; overflow:auto;">
             @if (ExamState.CurrentExam != null)
             {
                 <!-- Current Task -->
@@ -378,13 +379,80 @@
                                        Variant="Variant.Filled"
                                        Color="Color.Error"
                                        FullWidth="true"
-                                       OnClick="SubmitExam"
+                                       OnClick="ConfirmAndSubmitExam"
                                        Disabled="@ExamState.IsSubmitted">
                                 Submit Exam
                             </MudButton>
                         </MudStack>
                     </MudCardContent>
                 </MudCard>
+
+                @if (ExamState.LastEvaluation != null)
+                {
+                    <MudCard Class="mb-3" Elevation="1" Dense="true">
+                        <MudCardHeader DisableTypography="true">
+                            <CardHeaderContent>
+                                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudIcon Icon="@Icons.Material.Filled.Assessment" Color="Color.Primary" />
+                                    <MudText Typo="Typo.subtitle1" Class="font-weight-medium">Evaluation Result</MudText>
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Filled">
+                                        Final grade: @ExamState.LastEvaluation.Final_Grade
+                                    </MudChip>
+                                </MudStack>
+                            </CardHeaderContent>
+                        </MudCardHeader>
+                        <MudDivider />
+                        <MudCardContent>
+                            <MudStack Spacing="1">
+                                <MudPaper Class="pa-2" Elevation="0" Style="border-left:4px solid var(--mud-palette-primary);">
+                                    <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                        <MudText Typo="Typo.body2" Class="font-weight-bold">Task 1</MudText>
+                                        <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined">@ExamState.LastEvaluation.Evaluation.Task1.Percentage%</MudChip>
+                                    </MudStack>
+                                    <MudText Typo="Typo.caption" Class="text-secondary">Status: @ExamState.LastEvaluation.Evaluation.Task1.Status</MudText>
+                                    @if (!string.IsNullOrWhiteSpace(ExamState.LastEvaluation.Evaluation.Task1.Explanation))
+                                    {
+                                        <MudText Typo="Typo.caption">@ExamState.LastEvaluation.Evaluation.Task1.Explanation</MudText>
+                                    }
+                                </MudPaper>
+                                <MudPaper Class="pa-2" Elevation="0" Style="border-left:4px solid var(--mud-palette-primary);">
+                                    <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                        <MudText Typo="Typo.body2" Class="font-weight-bold">Task 2</MudText>
+                                        <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined">@ExamState.LastEvaluation.Evaluation.Task2.Percentage%</MudChip>
+                                    </MudStack>
+                                    <MudText Typo="Typo.caption" Class="text-secondary">Status: @ExamState.LastEvaluation.Evaluation.Task2.Status</MudText>
+                                    @if (!string.IsNullOrWhiteSpace(ExamState.LastEvaluation.Evaluation.Task2.Explanation))
+                                    {
+                                        <MudText Typo="Typo.caption">@ExamState.LastEvaluation.Evaluation.Task2.Explanation</MudText>
+                                    }
+                                </MudPaper>
+                                <MudPaper Class="pa-2" Elevation="0" Style="border-left:4px solid var(--mud-palette-primary);">
+                                    <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                        <MudText Typo="Typo.body2" Class="font-weight-bold">Task 3</MudText>
+                                        <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined">@ExamState.LastEvaluation.Evaluation.Task3.Percentage%</MudChip>
+                                    </MudStack>
+                                    <MudText Typo="Typo.caption" Class="text-secondary">Status: @ExamState.LastEvaluation.Evaluation.Task3.Status</MudText>
+                                    @if (!string.IsNullOrWhiteSpace(ExamState.LastEvaluation.Evaluation.Task3.Explanation))
+                                    {
+                                        <MudText Typo="Typo.caption">@ExamState.LastEvaluation.Evaluation.Task3.Explanation</MudText>
+                                    }
+                                </MudPaper>
+                                <MudPaper Class="pa-2" Elevation="0" Style="border-left:4px solid var(--mud-palette-primary);">
+                                    <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                        <MudText Typo="Typo.body2" Class="font-weight-bold">Task 4</MudText>
+                                        <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined">@ExamState.LastEvaluation.Evaluation.Task4.Percentage%</MudChip>
+                                    </MudStack>
+                                    <MudText Typo="Typo.caption" Class="text-secondary">Status: @ExamState.LastEvaluation.Evaluation.Task4.Status</MudText>
+                                    @if (!string.IsNullOrWhiteSpace(ExamState.LastEvaluation.Evaluation.Task4.Explanation))
+                                    {
+                                        <MudText Typo="Typo.caption">@ExamState.LastEvaluation.Evaluation.Task4.Explanation</MudText>
+                                    }
+                                </MudPaper>
+                                <MudText Typo="Typo.caption" Class="text-secondary mt-2">@ExamState.LastEvaluation.Timestamp</MudText>
+                            </MudStack>
+                        </MudCardContent>
+                    </MudCard>
+                }
 
                 <!-- Runnable Files -->
                 <MudCard Elevation="1" Dense="true">
@@ -436,7 +504,7 @@
                     </MudCardContent>
                 </MudCard>
             }
-        </MudScrollArea>
+    </div>
     </MudStack>
 </MudPaper>
 
@@ -593,20 +661,32 @@
         }
     }
 
-    private async Task SubmitExam()
+    private async Task ConfirmAndSubmitExam()
     {
         if (_disposed) return;
 
         try
         {
+            var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to submit? You won't be able to change your code after this.");
+            if (!confirmed) return;
             var files = ExamState.GetAllFiles();
             await ApiClient.SubmitExamAsync(files);
             ExamState.MarkAsSubmitted();
-            ExamState.SetConsoleOutput("Exam submitted successfully!");
+            ExamState.SetConsoleOutput("Exam submitted successfully! Starting evaluation...");
+
+            ExamState.SetEvaluating(true);
+            var evalResult = await ApiClient.EvaluateAsync(files, ExamState.CurrentExam!);
+            ExamState.SetEvaluationResult(evalResult);
+            ExamState.SetConsoleOutput($"Evaluation complete. Final grade: {FormatGrade(evalResult.Final_Grade)}. Redirecting to results...");
+            Nav.NavigateTo("/results");
         }
         catch (Exception ex)
         {
             ExamState.SetConsoleOutput($"Submit failed: {ex.Message}");
+        }
+        finally
+        {
+            ExamState.SetEvaluating(false);
         }
     }
 
@@ -646,5 +726,14 @@
                 ExamState.OnChange -= StateHasChanged;
             }
         }
+    }
+
+    private string FormatGrade(int grade)
+    {
+        var map = new Dictionary<int, string>{
+            {2,"two"},{3,"three"},{4,"four"},{5,"five"},{6,"six"},{7,"seven"},{8,"eight"},{9,"nine"},{10,"ten"}
+        };
+        var word = map.ContainsKey(grade) ? map[grade] : grade.ToString();
+        return $"{grade}({word})";
     }
 }

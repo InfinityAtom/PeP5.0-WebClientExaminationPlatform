@@ -389,23 +389,7 @@ import java.util.stream.Collectors;
  */
 public class Main {
     public static void main(String[] args) {
-        System.out.println("=== ${examData.exam.domain} ===\\n");
-        
-        // TODO: Implement the following tasks:
-        
-        // Task 1: ${examData.exam.tasks[0].description.substring(0, 100)}...
-        
-        // Task 2: ${examData.exam.tasks[1].description.substring(0, 100)}...
-        
-        // Task 3: ${examData.exam.tasks[2].description.substring(0, 100)}...
-        
-        // Task 4: ${examData.exam.tasks[3].description.substring(0, 100)}...
-        
-        System.out.println("Please implement the required tasks!");
-        System.out.println("Check the Tasks panel for detailed requirements.");
-        System.out.println("Remember to work ONLY in the src/ folder for any file operations.");
-        System.out.println("CSV files are available in the same directory as this file.");
-        System.out.println("\\n*** IMPORTANT: Display ALL results on screen only - DO NOT save parsed data to files ***");
+        System.out.println("Hello World!");
     }
 }`;
 
@@ -779,6 +763,183 @@ app.post('/submit', (req, res) => {
     } catch (error) {
         console.error('Error submitting exam:', error);
         res.status(500).json({ error: 'Failed to submit exam' });
+    }
+});
+
+// Evaluate submission against exam JSON and return ONLY the evaluation JSON
+async function evaluateHeuristics(files, exam){
+        const javaFiles = (files || []).filter(f => !f.isDirectory && /\.java$/i.test(f.name || f.path || ''));
+        const allCode = javaFiles.map(f => f.content || '').join('\n');
+
+        const csvFiles = (exam.csv_files || []).map(cf => typeof cf === 'string' ? cf : cf.filename).filter(Boolean);
+        const domain = exam.domain || 'Unknown Domain';
+        const overview = exam.overview || '';
+
+        const hasMain = /public\s+static\s+void\s+main\s*\(/.test(allCode);
+        const hasPrint = /System\.out\.(println|printf)/.test(allCode);
+        const usesFileRead = /(BufferedReader|FileReader|Files\s*\.|Paths\s*\.|Scanner\s*\(|CSVReader)/.test(allCode);
+        const mentionsCsvNames = csvFiles.some(n => allCode.includes(n));
+        const usesStreams = /\.stream\s*\(|Collectors\./.test(allCode);
+        const usesFilter = /\.filter\s*\(|if\s*\(.*(&&|\|\|).*/.test(allCode);
+        const usesMap = /\bMap<|HashMap<|Collectors\.groupingBy/.test(allCode);
+        const usesSort = /\.sorted\s*\(|Collections\.sort|Comparator\./.test(allCode);
+        const usesTryCatch = /try\s*\{[\s\S]*?\}\s*catch\s*\(/.test(allCode);
+        const usesNumberParsing = /(Integer\.parseInt|Double\.parseDouble|Float\.parseFloat|Long\.parseLong)/.test(allCode);
+
+        // Helper to compute percentage and status
+        function pctToStatus(p) {
+            if (p >= 50) return { status: 'Correctly Solved', percentage: p };
+            if (p >= 30) return { status: 'Partially Correct', percentage: p };
+            return { status: 'Incorrectly Solved', percentage: p };
+        }
+
+        // Task 1: load + filter + display
+        let t1Score = 0;
+        if (usesFileRead || mentionsCsvNames) t1Score += 35;
+        if (usesFilter || usesStreams) t1Score += 35;
+        if (hasPrint) t1Score += 30;
+        t1Score = Math.min(100, t1Score);
+
+        // Task 2: relationships + analytics + reporting
+        let t2Score = 0;
+        const usesBothCSVs = csvFiles.length >= 2 && mentionsCsvNames;
+        if (usesBothCSVs) t2Score += 30;
+        if (usesMap || /join|merge|link|key/i.test(allCode)) t2Score += 30;
+        if (usesStreams || /average|sum|count|revenue|distribution|segment|loyal/i.test(allCode)) t2Score += 20;
+        if (hasPrint) t2Score += 20;
+        t2Score = Math.min(100, t2Score);
+
+        // Task 3: sorting + validation + error handling
+        let t3Score = 0;
+        if (usesSort) t3Score += 40;
+        if (usesTryCatch) t3Score += 30;
+        if (usesNumberParsing) t3Score += 30;
+        t3Score = Math.min(100, t3Score);
+
+        // Task 4: data structures + statistics + dashboards
+        let t4Score = 0;
+        const usesMultipleMaps = (allCode.match(/\bMap</g) || []).length >= 2 || /Collectors\.groupingBy/.test(allCode);
+        if (usesMultipleMaps) t4Score += 40;
+        if (/lifetime|retention|popularity|ranking|distribution|pattern|predict/i.test(allCode) || usesStreams) t4Score += 30;
+        if (hasPrint) t4Score += 30;
+        t4Score = Math.min(100, t4Score);
+
+        // Special rules
+        // If Task 3 or Task 4 ≥50%, then Task 2 is automatically ≥50%.
+        if (t3Score >= 50 || t4Score >= 50) {
+            t2Score = Math.max(t2Score, 50);
+        }
+
+        // If Task 2 has no System.out.println AND not compensated by Task 4 printing, enforce grade 4 scenario
+        const t2PrintAbsentHardFail = !hasPrint && t4Score < 50;
+
+        const t1 = pctToStatus(t1Score);
+        const t2 = pctToStatus(t2Score);
+        const t3 = pctToStatus(t3Score);
+        const t4 = pctToStatus(t4Score);
+
+        const pass = [t1, t2, t3, t4].map(t => t.percentage >= 50);
+        const partial = [t1, t2, t3, t4].map(t => t.percentage >= 30 && t.percentage < 50);
+        const passCount = pass.filter(Boolean).length;
+        const partialCount = partial.filter(Boolean).length;
+
+        // Compute final grade
+        let finalGrade;
+        if (!hasMain) {
+            finalGrade = 4; // No functioning main class
+        } else if (passCount === 0) {
+            finalGrade = 4; // None ≥50%
+        } else if (t2PrintAbsentHardFail) {
+            finalGrade = 4; // Task 2 println missing and not compensated by Task 4
+        } else {
+            if (passCount === 4) finalGrade = 10;
+            else if (passCount === 3) finalGrade = partialCount >= 1 ? 9 : 8;
+            else if (passCount === 2) finalGrade = partialCount >= 1 ? 7 : 6;
+            else if (passCount === 1) {
+                // Fall back to Task 1 mapping
+                if (t1.percentage < 10) finalGrade = 2;
+                else if (t1.percentage < 30) finalGrade = 3;
+                else if (t1.percentage < 50) finalGrade = 4;
+                else finalGrade = 5;
+                // If both T1 and T2 are ≥50 explicitly, ensure grade 6
+                if (t1.percentage >= 50 && t2.percentage >= 50) finalGrade = Math.max(finalGrade, 6);
+            } else {
+                finalGrade = 4; // Default safety
+            }
+        }
+
+        // Bound grade
+        finalGrade = Math.max(2, Math.min(10, finalGrade));
+
+                const nowIso = new Date().toISOString();
+                return {
+            exam: {
+                domain,
+                csv_files: csvFiles,
+                overview
+            },
+            evaluation: {
+                task1: { percentage: t1.percentage, status: t1.status, explanation: 'Heuristic: load/filter/print evidence.' },
+                task2: { percentage: t2.percentage, status: t2.status, explanation: 'Heuristic: relationships/analytics/reporting evidence.' },
+                task3: { percentage: t3.percentage, status: t3.status, explanation: 'Heuristic: sort/error handling/data validation evidence.' },
+                task4: { percentage: t4.percentage, status: t4.status, explanation: 'Heuristic: data structures/statistics/reporting evidence.' }
+            },
+            final_grade: finalGrade,
+            timestamp: nowIso
+                };
+}
+
+async function evaluateWithGPT(files, exam){
+    const prompt = `You are an automated grader. Return ONLY valid JSON with this exact structure and snake_case keys:\n{\n  \"exam\": {\"domain\": \"string\", \"csv_files\": [\"string\"], \"overview\": \"string\"},\n  \"evaluation\": {\n    \"task1\": {\"percentage\": number, \"status\": \"Correctly Solved|Partially Correct|Incorrectly Solved\", \"explanation\": \"string\"},\n    \"task2\": {\"percentage\": number, \"status\": \"Correctly Solved|Partially Correct|Incorrectly Solved\", \"explanation\": \"string\"},\n    \"task3\": {\"percentage\": number, \"status\": \"Correctly Solved|Partially Correct|Incorrectly Solved\", \"explanation\": \"string\"},\n    \"task4\": {\"percentage\": number, \"status\": \"Correctly Solved|Partially Correct|Incorrectly Solved\", \"explanation\": \"string\"}\n  },\n  \"final_grade\": number,\n  \"timestamp\": \"ISO-8601 string\"\n}\n\nGrading rules: Prefer higher grades only if multiple tasks ≥50%. Apply constraints similar to: if no main method then final_grade=4; if none ≥50% then 4; if 3-4 pass then 9-10, if 2 pass then 6-7 depending on partials; if 1 pass then map Task 1 percent to 2-5 with min 6 if both T1 and T2 ≥50. Use only the provided code and exam context. Strictly output only JSON.`;
+
+    const javaFiles = (files || []).filter(f => !f.isDirectory && /\.java$/i.test(f.name || f.path || ''));
+    const codeBundle = javaFiles.map(f => `// ${f.path || f.name}\n${f.content}`).join('\n\n');
+    const csvFiles = (exam.csv_files || []).map(cf => typeof cf === 'string' ? cf : cf.filename).filter(Boolean);
+    const payload = {
+        model: 'gpt-4o',
+        messages: [
+            { role: 'system', content: 'You are a JSON-only auto-grader. Respond with only the JSON object.' },
+            { role: 'user', content: `${prompt}\n\nExam domain: ${exam.domain}\nOverview: ${exam.overview}\nCSV files: ${csvFiles.join(', ')}\n\nCode:\n${codeBundle}` }
+        ],
+        temperature: 0.2,
+        max_tokens: 800,
+        response_format: { type: 'json_object' }
+    };
+
+    if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY missing');
+
+    const response = await axios.post(OPENAI_API_URL, payload, {
+        headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'Content-Type': 'application/json'
+        }
+    });
+    const content = (response.data.choices?.[0]?.message?.content || '').trim();
+    const json = JSON.parse(content);
+    if (json && json.exam) {
+        const files = json.exam.csv_files || [];
+        json.exam.csv_files = files.map(x => typeof x === 'string' ? x : (x && x.filename) ? x.filename : String(x));
+    }
+    return json;
+}
+
+app.post('/evaluate', async (req, res) => {
+    try{
+        const { files, exam } = req.body || {};
+        if (!files || !exam) return res.status(400).json({ error: 'Missing files or exam' });
+
+        let result;
+        try{
+            result = await evaluateWithGPT(files, exam);
+        } catch(err){
+            console.warn('⚠️ OpenAI evaluation failed, falling back to heuristics:', err?.message || err);
+            result = await evaluateHeuristics(files, exam);
+        }
+        res.setHeader('Content-Type', 'application/json');
+        return res.send(JSON.stringify(result));
+    } catch(error){
+        console.error('Error evaluating submission:', error);
+        return res.status(500).json({ error: 'Failed to evaluate submission' });
     }
 });
 

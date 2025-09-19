@@ -2,10 +2,13 @@
 @using AIExamIDE.Services
 @using AIExamIDE.Models
 @using System.Net
+@using System.Text.Json
 @inject ExamState ExamState
 @inject ApiClient ApiClient
 @inject IJSRuntime JSRuntime
+@inject NavigationManager Nav
 @rendermode InteractiveServer
+@implements IDisposable
 
 <PageTitle>PePExam - @FormatTime(ExamState.TimeRemainingSeconds) Remaining</PageTitle>
 
@@ -17,33 +20,42 @@
 
 <div class="app-shell">
     <!-- Loading Overlay -->
-    @if (_isLoading)
+    @if (_isLoading || ExamState.IsEvaluating)
     {
-        <div
-            style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999; background-color: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center;">
-            <MudPaper Class="pa-8" Elevation="8" Style="border-radius: 16px; text-align: center; max-width: 500px;">
-                <MudStack AlignItems="AlignItems.Center" Spacing="4">
-                    <MudProgressCircular Size="Size.Large" Indeterminate="true" Color="Color.Primary" />
-                    <MudText Typo="Typo.h4" Class="font-weight-bold">Generating Your Exam</MudText>
-                    <MudText Typo="Typo.body1" Style="color: #666;">
-                        🤖 AI is creating a personalized programming exam with tasks and data files...
-                    </MudText>
-                    <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
-                        <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Primary" />
-                        <MudText Typo="Typo.body2">Powered by GPT-5</MudText>
-                    </MudStack>
-                    <MudLinearProgress Indeterminate="true" Color="Color.Primary" Style="width: 100%;" />
-                    <MudText Typo="Typo.caption" Style="color: #888;">
-                        This may take a few moments...
-                    </MudText>
-                </MudStack>
-            </MudPaper>
-        </div>
+<div
+    style="position: fixed; inset: 0; z-index: 9999; background-color: #ffffff; 
+           display: grid; place-items: center;">
+    
+    <!-- Centered content -->
+    <div style="display: flex; flex-direction: column; align-items: center;">
+        <img src="images/logo.png" alt="Application Logo"
+             style="max-width: 260px; width: 40vw; height: auto;" />
+        @if (_isLoading)
+        {
+            <MudText Typo="Typo.h6" Class="mt-4" Style="color: #333;">
+                The exam is loading, please wait...
+            </MudText>
+        }
+        else
+        {
+            <MudText Typo="Typo.h6" Class="mt-4" Style="color: #333;">
+                Evaluating your submission, please wait...
+            </MudText>
+        }
+    </div>
+
+    <!-- Bottom progress bar -->
+    <div style="position: absolute; bottom: 0; left: 0; right: 0; width: 100%;">
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="m-0" />
+    </div>
+</div>
+
+
     }
     
     <MudLayout>
         <!-- Header -->
-        <MudAppBar Elevation="1" Dense="true" Color="Color.Primary">
+        <MudAppBar Elevation="0" Dense="false" Color="Color.Primary">
             <MudText Typo="Typo.h6" Class="text-white font-weight-bold">
                 Programming Examination Platform v5.0
             </MudText>
@@ -54,17 +66,17 @@
 
         <!-- Main IDE Split -->
         <MudMainContent>
-            @if (!_isLoading && ExamState.CurrentExam != null)
+            @if (!_isLoading && !ExamState.IsEvaluating && ExamState.CurrentExam != null)
             {
                 <MudGrid Spacing="0" Class="h-100">
 
                     <!-- Solution Explorer -->
-                    <MudItem xs="2" Class="border-right bg-gray-100">
+                    <MudItem xs="3" Class="border-right bg-gray-100">
                         <SolutionExplorer />
                     </MudItem>
 
                     <!-- Code Editor -->
-                    <MudItem xs="7" Class="bg-dark">
+                    <MudItem xs="6" Class="bg-dark">
                         <EditorTabs />
                     </MudItem>
 
@@ -74,7 +86,7 @@
                     </MudItem>
                 </MudGrid>
             }
-            else if (!_isLoading)
+            else if (!_isLoading && !ExamState.IsEvaluating)
             {
                 <div style="display: flex; align-items: center; justify-content: center; height: 100%;">
                     <MudPaper Class="pa-8" Elevation="4" Style="text-align: center;">
@@ -334,27 +346,72 @@
     private bool _isConsoleOpen = false;
     private string _lastConsoleOutput = "";
     private bool _autoShowOnRun = false;
+    private bool _examLoaded = false;
+    private bool _examGenerationStarted = false;
+    protected override void OnInitialized()
+    {
+        // Wire events safely (avoid duplicates if this runs twice due to prerender + interactive reconnect)
+        ExamState.SetInvokeAsync(async (func) => await InvokeAsync(func));
+        ExamState.OnChange -= OnStateChanged;
+        ExamState.OnCodeRunStarted -= OnCodeRunStarted;
+        ExamState.OnShowCsvOverlay -= ShowCsvOverlay;
+        ExamState.OnChange += OnStateChanged;
+        ExamState.OnCodeRunStarted += OnCodeRunStarted;
+        ExamState.OnShowCsvOverlay += ShowCsvOverlay;
 
+        // Defer exam generation to first interactive render to avoid double generation during prerender
+        _isLoading = true;
+        StateHasChanged();
+    }
     // CSV Overlay variables
     private bool _isCsvOverlayOpen = false;
     private ExamFile? _selectedCsvFile = null;
     private List<Dictionary<string, string>>? _csvData = null;
     private List<string>? _csvHeaders = null;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        ExamState.SetInvokeAsync(async (func) => await InvokeAsync(func));
-        ExamState.OnChange += OnStateChanged;
-        ExamState.OnCodeRunStarted += OnCodeRunStarted;
-        ExamState.OnShowCsvOverlay += ShowCsvOverlay;
-
+        // Only load once, and only when JS is available (i.e., interactive phase)
+        if (_examLoaded || _examGenerationStarted || ExamState.CurrentExam != null) return;
         try
         {
-            _isLoading = true;
-            StateHasChanged();
+            // Mark generation as started to avoid concurrent calls on rapid re-renders
+            _examGenerationStarted = true;
 
+            // Try to load from cache first to avoid hitting /exam multiple times across reconnects
+            try
+            {
+                var cachedJson = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "examCacheV1");
+                if (!string.IsNullOrWhiteSpace(cachedJson))
+                {
+                    var cached = JsonSerializer.Deserialize<ExamResponse>(cachedJson);
+                    if (cached != null && cached.Exam != null)
+                    {
+                        ExamState.LoadExam(cached.Exam, cached.Files ?? new());
+                        var mainCached = ExamState.GetFileByPath("src/Main.java");
+                        if (mainCached != null) ExamState.OpenFile(mainCached);
+                        _isLoading = false;
+                        _examLoaded = true;
+                        StateHasChanged();
+                        return;
+                    }
+                }
+            }
+            catch { /* ignore cache errors */ }
+            // Throws during server prerender; succeeds after interactive circuit connects
+            await JSRuntime.InvokeVoidAsync("eval", "0");
+
+            // Client-interactive: safe to generate exam once
             var examData = await ApiClient.GenerateExamAsync();
             ExamState.LoadExam(examData.Exam, examData.Files);
+
+            // Persist in cache to prevent repeat generations on reconnect/refresh
+            try
+            {
+                var toCache = JsonSerializer.Serialize(examData);
+                await JSRuntime.InvokeVoidAsync("localStorage.setItem", "examCacheV1", toCache);
+            }
+            catch { /* ignore cache errors */ }
 
             var mainFile = ExamState.GetFileByPath("src/Main.java");
             if (mainFile != null)
@@ -363,11 +420,18 @@
             }
 
             _isLoading = false;
+            _examLoaded = true;
             StateHasChanged();
+        }
+        catch (InvalidOperationException)
+        {
+            // Still in prerender; allow a retry on the next interactive render
+            _examGenerationStarted = false;
         }
         catch (Exception ex)
         {
             _isLoading = false;
+            _examLoaded = true; // prevent retries loop
             ExamState.SetConsoleOutput($"Error loading exam: {ex.Message}");
             StateHasChanged();
         }
@@ -644,15 +708,40 @@
     {
         try
         {
+            var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to submit? You won't be able to change your code after this.");
+            if (!confirmed) return;
             var files = ExamState.GetAllFiles();
             await ApiClient.SubmitExamAsync(files);
             ExamState.MarkAsSubmitted();
-            ExamState.SetConsoleOutput("Exam submitted successfully!");
+            ExamState.SetConsoleOutput("Exam submitted successfully! Starting evaluation...");
+
+            // Start evaluation with splash overlay
+            ExamState.SetEvaluating(true);
+            StateHasChanged();
+
+            var evalResult = await ApiClient.EvaluateAsync(files, ExamState.CurrentExam!);
+            ExamState.SetEvaluationResult(evalResult);
+            ExamState.SetConsoleOutput($"Evaluation complete. Final grade: {FormatGrade(evalResult.Final_Grade)}. Check details below.");
+            Nav.NavigateTo("/results");
         }
         catch (Exception ex)
         {
             ExamState.SetConsoleOutput($"Submit failed: {ex.Message}");
         }
+        finally
+        {
+            ExamState.SetEvaluating(false);
+            StateHasChanged();
+        }
+    }
+
+    private string FormatGrade(int grade)
+    {
+        var map = new Dictionary<int, string>{
+            {2,"two"},{3,"three"},{4,"four"},{5,"five"},{6,"six"},{7,"seven"},{8,"eight"},{9,"nine"},{10,"ten"}
+        };
+        var word = map.ContainsKey(grade) ? map[grade] : grade.ToString();
+        return $"{grade}({word})";
     }
 
     public void Dispose()

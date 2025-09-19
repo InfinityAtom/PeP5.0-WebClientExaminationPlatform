@@ -1,9 +1,10 @@
 // screenshot-guard.js - Enhanced screenshot protection
 (function () {
-  const PULSE_MS = 2000; // Increased duration
+  const PULSE_MS = 2000; // Show overlay for this long unless held by focus/visibility/devtools
   let isProtectionActive = false;
+  let autoHideTimer = null;
 
-  // Create persistent watermark overlay
+  // Create persistent overlay (hidden by default)
   function createWatermarkOverlay() {
     const overlay = document.createElement('div');
     overlay.id = 'screenshot-protection-overlay';
@@ -16,11 +17,11 @@
       z-index: 2147483647 !important;
       pointer-events: none !important;
       background: rgba(0, 0, 0, 0.95) !important;
-      display: none !important;
       backdrop-filter: blur(10px) !important;
       -webkit-backdrop-filter: blur(10px) !important;
+      display: none; /* do NOT use !important here so we can toggle reliably */
     `;
-    
+
     // Add watermark text pattern
     overlay.innerHTML = `
       <div style="
@@ -55,7 +56,7 @@
         ${new Date().toISOString()}
       </div>
     `;
-    
+
     document.body.appendChild(overlay);
     return overlay;
   }
@@ -69,27 +70,27 @@
     return overlay;
   }
 
+  function scheduleAutoHide() {
+    clearTimeout(autoHideTimer);
+    autoHideTimer = setTimeout(() => {
+      hideProtection();
+    }, PULSE_MS);
+  }
+
   // Show protection immediately
-  function showProtection() {
-    if (isProtectionActive) return;
-    
-    isProtectionActive = true;
+  function showProtection({ hold = false } = {}) {
     const overlay = getOverlay();
-    overlay.style.display = 'block !important';
-    
-    // Also blur the main content
-    document.documentElement.classList.add('wm');
-    
-    // Trigger pulse
-    window.__wmPulse?.(PULSE_MS);
+    overlay.style.display = 'block';
+    isProtectionActive = true;
+    if (!hold) scheduleAutoHide();
   }
 
   // Hide protection
   function hideProtection() {
-    isProtectionActive = false;
     const overlay = getOverlay();
-    overlay.style.display = 'none !important';
-    document.documentElement.classList.remove('wm');
+    overlay.style.display = 'none';
+    isProtectionActive = false;
+    clearTimeout(autoHideTimer);
   }
 
   // Enhanced keyboard detection
@@ -118,60 +119,48 @@
     );
 
     if (isScreenshot) {
+      // Do our best to show overlay synchronously
+      showProtection();
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
-      showProtection();
-      
-      setTimeout(hideProtection, PULSE_MS);
       return false;
     }
   }, { capture: true, passive: false });
 
   // Window focus/blur events
-  let blurTimeout;
-  
   window.addEventListener('blur', () => {
-    showProtection();
-    // Keep protection active while window is not focused
+    // Hold overlay while window is unfocused
+    showProtection({ hold: true });
   }, true);
 
   window.addEventListener('focus', () => {
-    // Delay hiding protection to ensure we're really focused
-    clearTimeout(blurTimeout);
-    blurTimeout = setTimeout(() => {
-      if (document.hasFocus() && !isProtectionActive) {
-        hideProtection();
-      }
-    }, 500);
+    // When we regain focus, hide the overlay after a short delay
+    setTimeout(() => {
+      if (document.hasFocus()) hideProtection();
+    }, 250);
   }, true);
 
   // Visibility change
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      showProtection();
+      showProtection({ hold: true });
     } else {
-      // Delay hiding when becoming visible
       setTimeout(() => {
-        if (!document.hidden && document.hasFocus()) {
-          hideProtection();
-        }
-      }, 500);
+        if (!document.hidden && document.hasFocus()) hideProtection();
+      }, 250);
     }
   }, true);
 
   // Print events
-  window.addEventListener('beforeprint', (e) => {
-    e.preventDefault();
+  window.addEventListener('beforeprint', () => {
     showProtection();
-    setTimeout(hideProtection, PULSE_MS);
   });
 
   // Context menu (right-click) prevention
   document.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     showProtection();
-    setTimeout(hideProtection, 1000);
   }, true);
 
   // DevTools detection (basic)
@@ -187,12 +176,12 @@
         window.outerWidth - window.innerWidth > threshold) {
       if (!devtools.open) {
         devtools.open = true;
-        showProtection();
+        showProtection({ hold: true });
       }
     } else {
       if (devtools.open) {
         devtools.open = false;
-        setTimeout(hideProtection, 1000);
+        hideProtection();
       }
     }
   }, 500);
@@ -201,7 +190,6 @@
   document.addEventListener('dragstart', (e) => {
     e.preventDefault();
     showProtection();
-    setTimeout(hideProtection, 1000);
   }, true);
 
   // Initialize overlay on load

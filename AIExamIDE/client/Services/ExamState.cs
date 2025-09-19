@@ -18,6 +18,16 @@ namespace AIExamIDE.Services
         public bool IsSubmitted { get; private set; } = false;
         public string ConsoleOutput { get; private set; } = "Ready to run code...";
 
+    // Evaluation state
+    public EvaluationResult? LastEvaluation { get; private set; }
+    public bool IsEvaluating { get; private set; } = false;
+
+    // Timing state
+    public int InitialTimeSeconds { get; private set; } = 0;
+    public DateTime ExamStartUtc { get; private set; } = DateTime.UtcNow;
+    public DateTime? SubmittedUtc { get; private set; }
+    public DateTime? EvaluatedUtc { get; private set; }
+
         public event Action? OnChange;
 
         public ExamState()
@@ -71,7 +81,11 @@ namespace AIExamIDE.Services
             CurrentExam = exam;
             Files = files;
             // Set default time limit if not specified in exam metadata
-            TimeRemainingSeconds = (exam.Duration ?? 60) * 60; // Convert minutes to seconds, default to 60 minutes
+            InitialTimeSeconds = (exam.Duration ?? 60) * 60;
+            TimeRemainingSeconds = InitialTimeSeconds; // Convert minutes to seconds
+            ExamStartUtc = DateTime.UtcNow;
+            SubmittedUtc = null;
+            EvaluatedUtc = null;
             CurrentTaskIndex = 0;
             NotifyStateChanged();
         }
@@ -149,6 +163,22 @@ namespace AIExamIDE.Services
             if (_disposed) return;
 
             IsSubmitted = true;
+            SubmittedUtc = DateTime.UtcNow;
+            NotifyStateChanged();
+        }
+
+        public void SetEvaluating(bool evaluating)
+        {
+            if (_disposed) return;
+            IsEvaluating = evaluating;
+            NotifyStateChanged();
+        }
+
+        public void SetEvaluationResult(EvaluationResult result)
+        {
+            if (_disposed) return;
+            LastEvaluation = result;
+            EvaluatedUtc = DateTime.UtcNow;
             NotifyStateChanged();
         }
 

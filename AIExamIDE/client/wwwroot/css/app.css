@@ -518,86 +518,20 @@ Make sure disabled buttons don't get the pointer cursor.
   cursor: default;
 }
 
-
-/* Enhanced watermark protection */
-html.wm {
-  filter: blur(8px) brightness(0.3) saturate(0.2) !important;
-  -webkit-filter: blur(8px) brightness(0.3) saturate(0.2) !important;
+html.no-fullscreen .app-shell {
+  position: relative;
+  pointer-events: none;
+  user-select: none;
 }
 
-html.wm * {
-  visibility: hidden !important;
-  opacity: 0 !important;
+html.no-fullscreen .app-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;              /* covers whole area */
+  background: white;     /* solid white */
+  z-index: 8000;
 }
 
-html.wm .app-shell::after {
-  content: "🔒 PROTECTED CONTENT - SCREENSHOT BLOCKED 🔒" !important;
-  position: fixed !important;
-  inset: 0 !important;
-  pointer-events: none !important;
-  z-index: 2147483647 !important;
-  background: repeating-linear-gradient(
-    45deg,
-    rgba(255, 0, 0, 0.8),
-    rgba(255, 0, 0, 0.8) 50px,
-    rgba(0, 0, 0, 0.9) 50px,
-    rgba(0, 0, 0, 0.9) 100px
-  ) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  font: bold 24px system-ui !important;
-  color: white !important;
-  text-shadow: 2px 2px 4px black !important;
-  text-align: center !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-}
-
-/* Prevent selection and interaction during protection */
-html.wm body {
-  user-select: none !important;
-  -webkit-user-select: none !important;
-  -moz-user-select: none !important;
-  -ms-user-select: none !important;
-  pointer-events: none !important;
-}
-
-/* Additional protection styles */
-html.no-fullscreen .app-shell { 
-  filter: blur(10px) saturate(0.1) brightness(0.2) !important;
-  pointer-events: none !important;
-  user-select: none !important;
-}
-
-/* Print protection */
-@media print {
-  * {
-    visibility: hidden !important;
-    display: none !important;
-  }
-  
-  body::before {
-    content: "PRINTING BLOCKED - PROTECTED CONTENT" !important;
-    position: fixed !important;
-    top: 50% !important;
-    left: 50% !important;
-    transform: translate(-50%, -50%) !important;
-    font-size: 48px !important;
-    font-weight: bold !important;
-    color: red !important;
-    visibility: visible !important;
-    display: block !important;
-    z-index: 999999 !important;
-  }
-}
-
-
-html.no-fullscreen .app-shell { 
-  filter: blur(3px) saturate(.6);
-  pointer-events:none;
-  user-select:none;
-}
 
 /*
 1. Make replaced elements `display: block` by default. (https://github.com/mozdevs/cssremedy/issues/14)

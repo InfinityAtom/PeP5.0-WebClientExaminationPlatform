@@ -21,9 +21,6 @@
         <a class="dismiss">🗙</a>
     </div>
 <script src="js/fullscreen.js?v=4"></script>
-<script src="js/watermark.js?v=4"></script>
-<script src="js/wm-pulse.js?v=2"></script>
-<script src="js/screenshot-guard.js?v=2"></script>
 
 
     <script src="js/guard.js"></script>
@@ -98,7 +95,7 @@
                     }
 
                     // Update editor content and settings
-                    window.aceEditor.setTheme("ace/theme/monokai");
+                    window.aceEditor.setTheme("ace/theme/textmate");
                     window.aceEditor.session.setMode("ace/mode/" + language);
                     window.aceEditor.setValue(content || '', -1);
                     window.aceEditor.setReadOnly(readOnly || false);

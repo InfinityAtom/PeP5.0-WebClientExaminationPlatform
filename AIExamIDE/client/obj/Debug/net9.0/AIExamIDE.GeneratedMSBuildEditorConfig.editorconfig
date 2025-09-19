@@ -51,6 +51,10 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xIb21lLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Results.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xSZXN1bHRzLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Weather.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xXZWF0aGVyLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
@@ -69,6 +73,10 @@ build_metadata.AdditionalFiles.CssScope =
 
 [C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Shared/FullscreenWarning.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcRnVsbHNjcmVlbldhcm5pbmcucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Shared/IntegrityBar.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcSW50ZWdyaXR5QmFyLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Shared/SolutionExplorer.razor]

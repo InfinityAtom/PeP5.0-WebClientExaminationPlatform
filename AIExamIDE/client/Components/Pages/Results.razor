@@ -1,0 +1,253 @@
+@page "/results"
+@using AIExamIDE.Models
+@using MudBlazor
+@using System.Linq
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components.Web
+@inject ExamState ExamState
+@inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
+@rendermode InteractiveServer
+
+<PageTitle>Evaluation Results</PageTitle>
+
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+@if (ExamState.LastEvaluation == null)
+{
+    <div style="display:flex;align-items:center;justify-content:center;height:100%;">
+        <MudPaper Class="pa-6" Elevation="2" Style="text-align:center;">
+            <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                <MudIcon Icon="@Icons.Material.Filled.Info" Color="Color.Info" Size="Size.Large" />
+                <MudText Typo="Typo.h5">No evaluation available</MudText>
+                <MudText Typo="Typo.body1">Submit your exam to see the results.</MudText>
+                <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="GoHome">Go to Exam</MudButton>
+            </MudStack>
+        </MudPaper>
+    </div>
+}
+else
+{
+    var res = ExamState.LastEvaluation;
+    <MudContainer MaxWidth="MaxWidth.Large" Class="pa-4">
+        <MudStack Spacing="3">
+            <!-- Summary Hero -->
+            <MudPaper Class="pa-4" Elevation="1" Style="background:linear-gradient(135deg, rgba(25,118,210,.08), rgba(25,118,210,.02));">
+                <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Spacing="3">
+                    <MudStack Row AlignItems="AlignItems.Center" Spacing="3">
+                        <MudAvatar Size="Size.Large" Color="Color.Primary" Variant="Variant.Filled"
+                                   Style="width:96px;height:96px;font-size:2rem;display:flex;align-items:center;justify-content:center;">
+                            @res.Final_Grade
+                        </MudAvatar>
+                        <MudStack>
+                            <MudText Typo="Typo.h5" Class="font-weight-bold">Final Grade</MudText>
+                            <MudText Typo="Typo.body1" Class="text-secondary">@FormatGrade(res.Final_Grade)</MudText>
+                                <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
+                                <MudIcon Icon="@Icons.Material.Filled.Domain" Class="mr-1" /> @res.Exam.Domain
+                            </MudChip>
+                        </MudStack>
+                    </MudStack>
+                    <MudStack Spacing="1" Style="min-width:280px;">
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.Timer" />
+                            <MudText Typo="Typo.body2"><b>Time Spent:</b> @GetTimeSpent()</MudText>
+                        </MudStack>
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.PlayArrow" />
+                            <MudText Typo="Typo.body2"><b>Started:</b> @ExamState.ExamStartUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</MudText>
+                        </MudStack>
+                        @if (ExamState.SubmittedUtc.HasValue)
+                        {
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.Send" />
+                                <MudText Typo="Typo.body2"><b>Submitted:</b> @ExamState.SubmittedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</MudText>
+                            </MudStack>
+                        }
+                        @if (ExamState.EvaluatedUtc.HasValue)
+                        {
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" />
+                                <MudText Typo="Typo.body2"><b>Evaluated:</b> @ExamState.EvaluatedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</MudText>
+                            </MudStack>
+                        }
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudStack Spacing="1">
+                    <MudText Typo="Typo.h6" Class="font-weight-bold">Exam</MudText>
+                    <MudText Typo="Typo.subtitle2">@res.Exam.Domain</MudText>
+                    <MudText Typo="Typo.body2">@res.Exam.Overview</MudText>
+                    @if (res.Exam.Csv_Files?.Any() == true)
+                    {
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.TableChart" />
+                            <MudText Typo="Typo.caption">CSV Files:</MudText>
+                            @foreach (var f in res.Exam.Csv_Files)
+                            {
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@f</MudChip>
+                            }
+                        </MudStack>
+                    }
+                    @if (GetCodeFiles().Any())
+                    {
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Custom.FileFormats.FileCode" />
+                            <MudText Typo="Typo.caption">Code Files:</MudText>
+                            @foreach (var f in GetCodeFiles())
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Text">@f</MudChip>
+                            }
+                        </MudStack>
+                    }
+                </MudStack>
+            </MudPaper>
+
+            @if (ExamState.CurrentExam?.Tasks?.Any() == true)
+            {
+                <MudPaper Class="pa-4" Elevation="1">
+                    <MudStack Spacing="2">
+                        <MudText Typo="Typo.h6" Class="font-weight-bold">Tasks</MudText>
+                        @for (int i = 0; i < ExamState.CurrentExam.Tasks.Count; i++)
+                        {
+                            var t = ExamState.CurrentExam.Tasks[i];
+                            <MudPaper Class="pa-3" Elevation="0" Style="border-left:4px solid var(--mud-palette-primary);">
+                                <MudText Typo="Typo.subtitle2" Class="font-weight-bold">Task @(i + 1): @t.Title</MudText>
+                                @if (!string.IsNullOrWhiteSpace(t.Description))
+                                {
+                                    <MudText Typo="Typo.body2" Class="text-secondary">@t.Description</MudText>
+                                }
+                            </MudPaper>
+                        }
+                    </MudStack>
+                </MudPaper>
+            }
+            <MudGrid>
+                @TaskCard("Task 1", res.Evaluation.Task1)
+                @TaskCard("Task 2", res.Evaluation.Task2)
+                @TaskCard("Task 3", res.Evaluation.Task3)
+                @TaskCard("Task 4", res.Evaluation.Task4)
+            </MudGrid>
+
+            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Spacing="1">
+                <MudStack Row Spacing="1">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Info" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="CopyEvaluationJson">Copy Evaluation JSON</MudButton>
+                </MudStack>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GoHome">Back to Exam</MudButton>
+            </MudStack>
+        </MudStack>
+    </MudContainer>
+}
+
+@code {
+    private void GoHome() => Nav.NavigateTo("/");
+    private RenderFragment TaskCard(string title, EvaluationTask task) => __builder =>
+    {
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudStack Spacing="1">
+                    <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.subtitle1" Class="font-weight-bold">@title</MudText>
+                        <MudChip T="string" Color="@GetStatusColor(task.Status)" Variant="Variant.Filled">@task.Status</MudChip>
+                    </MudStack>
+                    <MudProgressLinear Value="@task.Percentage" Color="@GetProgressColor(task.Percentage)" Rounded="true" Class="my-1" />
+                    <MudText Typo="Typo.caption" Class="text-secondary">Score: @task.Percentage%</MudText>
+                    <MudText Typo="Typo.caption" Class="text-secondary">Status: @task.Status</MudText>
+                    <MudExpansionPanels Elevation="0">
+                        <MudExpansionPanel Text="Explanation" Dense="true">
+                            @if (!string.IsNullOrWhiteSpace(task.Explanation))
+                            {
+                                <MudText Typo="Typo.body2">@task.Explanation</MudText>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.caption" Class="text-secondary">No additional explanation provided.</MudText>
+                            }
+                        </MudExpansionPanel>
+                    </MudExpansionPanels>
+                </MudStack>
+            </MudPaper>
+        </MudItem>;
+    };
+
+    private string GetTimeSpent()
+    {
+        var start = ExamState.ExamStartUtc;
+        var end = ExamState.SubmittedUtc ?? ExamState.EvaluatedUtc ?? DateTime.UtcNow;
+        if (end < start) end = DateTime.UtcNow;
+        return FormatDuration(end - start);
+    }
+
+    private string FormatDuration(TimeSpan ts)
+    {
+        if (ts.TotalHours >= 1)
+            return $"{(int)ts.TotalHours:D2}:{ts.Minutes:D2}:{ts.Seconds:D2}";
+        return $"{ts.Minutes:D2}:{ts.Seconds:D2}";
+    }
+
+    private IEnumerable<string> GetCodeFiles()
+    {
+        return ExamState.Files
+            .Where(f => !f.IsDirectory && f.Name.EndsWith(".java", StringComparison.OrdinalIgnoreCase))
+            .Select(f => f.Name);
+    }
+
+    private string FormatGrade(int grade)
+    {
+        var map = new Dictionary<int, string>{{2,"two"},{3,"three"},{4,"four"},{5,"five"},{6,"six"},{7,"seven"},{8,"eight"},{9,"nine"},{10,"ten"}};
+        var word = map.ContainsKey(grade) ? map[grade] : grade.ToString();
+        return $"{grade}({word})";
+    }
+
+    private static readonly string[] ChartLabels = new[] { "Task 1", "Task 2", "Task 3", "Task 4" };
+
+    private IEnumerable<ChartSeries> GetChartSeries(EvaluationResult res)
+    {
+        return new List<ChartSeries>
+        {
+            new ChartSeries
+            {
+                Name = "Score",
+                Data = new double[]{ res.Evaluation.Task1.Percentage, res.Evaluation.Task2.Percentage, res.Evaluation.Task3.Percentage, res.Evaluation.Task4.Percentage }
+            }
+        };
+    }
+
+    private Color GetProgressColor(int pct)
+    {
+        if (pct >= 80) return Color.Success;
+        if (pct >= 50) return Color.Info;
+        if (pct >= 30) return Color.Warning;
+        return Color.Error;
+    }
+
+    private Color GetStatusColor(string status)
+    {
+        return status switch
+        {
+            "Correctly Solved" => Color.Success,
+            "Partially Correct" => Color.Warning,
+            _ => Color.Error
+        };
+    }
+
+    private async Task CopyEvaluationJson()
+    {
+        if (ExamState.LastEvaluation == null) return;
+        try
+        {
+            var json = JsonSerializer.Serialize(ExamState.LastEvaluation, new JsonSerializerOptions { WriteIndented = true });
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", json);
+            Snackbar?.Add("Evaluation JSON copied to clipboard.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar?.Add($"Copy failed: {ex.Message}", Severity.Error);
+        }
+    }
+}
