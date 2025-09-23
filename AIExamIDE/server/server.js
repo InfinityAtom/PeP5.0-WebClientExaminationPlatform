@@ -18,8 +18,6 @@ const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toSt
 const examStore = new Map();
 const sessionStore = new Map();
 
-// OpenAI API Configuration
-const OPENAI_API_KEY = '';
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
 // Middleware
