@@ -19,7 +19,7 @@ const examStore = new Map();
 const sessionStore = new Map();
 
 // OpenAI API Configuration
-const OPENAI_API_KEY = 'sk-H3XCMlpSOcIbhtzkpRRmTSs5I5VmW5FYoYjK5bEXmWT3BlbkFJQlIjFcjiDT5o58e6QhVUPsjK6J8vaKw8byMQA-ohUA';
+const OPENAI_API_KEY = '';
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
 // Middleware
