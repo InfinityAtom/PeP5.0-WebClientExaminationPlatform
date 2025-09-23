@@ -8,7 +8,8 @@
   document.addEventListener("dragover", block, { capture: true });
   document.addEventListener("drop", block, { capture: true });
   document.addEventListener("selectstart", block, { capture: true });
-
+  document.addEventListener("copy", block, { capture: true });
+  document.addEventListener("paste", block, { capture: true });
   document.addEventListener("keydown", e => {
   const k = e.key.toLowerCase();
   const ctrl = e.ctrlKey || e.metaKey;
@@ -18,7 +19,7 @@
 
   const blocked =
     // copy, paste, cut, save, print, select all, find
-    ctrl && ["x","s","p","a","f"].includes(k) ||
+    ctrl && ["c","v","x","s","p","a","f"].includes(k) ||
     // devtools
     ctrl && e.shiftKey && ["i","j","c"].includes(k) ||
     k === "f12" ||

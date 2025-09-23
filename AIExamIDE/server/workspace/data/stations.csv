@@ -1,0 +1,16 @@
+StationID,Name,CapacityMW,Region
+S001,Solar Plant A,100,North
+S002,Wind Farm B,150,South
+S003,Hydro Station C,200,East
+S004,Solar Plant D,120,West
+S005,Wind Farm E,180,North
+S006,Hydro Station F,190,South
+S007,Solar Plant G,110,East
+S008,Wind Farm H,170,West
+S009,Hydro Station I,210,North
+S010,Solar Plant J,130,South
+S011,Wind Farm K,160,East
+S012,Hydro Station L,220,West
+S013,Solar Plant M,140,North
+S014,Wind Farm N,175,South
+S015,Hydro Station O,230,East

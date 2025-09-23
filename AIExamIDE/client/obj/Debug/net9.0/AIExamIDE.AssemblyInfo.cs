@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AIExamIDE")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+25edffb9066f5050332f63065f7efa801f9f0e92")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d34f130400c9b6325d5648512e6a0f590a5283d7")]
 [assembly: System.Reflection.AssemblyProductAttribute("AIExamIDE")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AIExamIDE")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
