@@ -1,0 +1,13 @@
+CustomerID,Name,Email,Phone,City,RegistrationDate,Status
+C001,John Smith,john.smith@email.com,555-0101,New York,2023-01-15,Premium
+C002,Sarah Johnson,sarah.j@email.com,555-0102,Los Angeles,2023-02-20,Regular
+C003,Mike Wilson,mike.w@email.com,555-0103,Chicago,2023-01-10,Premium
+C004,Emma Davis,emma.d@email.com,555-0104,Houston,2023-03-05,Regular
+C005,David Brown,david.b@email.com,555-0105,Phoenix,2023-01-25,VIP
+C006,Lisa Garcia,lisa.g@email.com,555-0106,Philadelphia,2023-02-14,Regular
+C007,Tom Anderson,tom.a@email.com,555-0107,San Antonio,2023-01-30,Premium
+C008,Anna Lee,anna.l@email.com,555-0108,San Diego,2023-03-12,Regular
+C009,Chris Martin,chris.m@email.com,555-0109,Dallas,2023-02-08,Premium
+C010,Sophie Chen,sophie.c@email.com,555-0110,San Jose,2023-01-18,VIP
+C011,Kevin Zhang,kevin.z@email.com,555-0111,Austin,2023-02-25,Regular
+C012,Maria Rodriguez,maria.r@email.com,555-0112,Jacksonville,2023-01-22,Premium

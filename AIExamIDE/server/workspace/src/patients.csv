@@ -1,0 +1,16 @@
+PatientID,Name,Age,Gender,Diagnosis
+P001,John Doe,45,Male,Brain Tumor
+P002,Jane Smith,38,Female,Lung Cancer
+P003,Emily Davis,50,Female,Breast Cancer
+P004,Michael Brown,60,Male,Melanoma
+P005,Emma Wilson,30,Female,Colorectal Cancer
+P006,Olivia Johnson,55,Female,Liver Cancer
+P007,Lucas Martinez,40,Male,Pancreatic Cancer
+P008,Sophia Hernandez,28,Female,Ovarian Cancer
+P009,Mason Lee,42,Male,Prostate Cancer
+P010,Ava Kim,37,Female,Thyroid Cancer
+P011,Ethan Clark,48,Male,Lymphoma
+P012,Isabella Rodriguez,46,Female,Leukemia
+P013,Liam Walker,52,Male,Kidney Cancer
+P014,Mia Young,34,Female,Head and Neck Cancer
+P015,Noah Hall,29,Male,Bladder Cancer

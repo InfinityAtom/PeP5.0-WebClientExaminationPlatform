@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\z005612k\\Desktop\\PeP\\V5Old\\AIExamIDE\\client\\AIExamIDE.csproj": {}
+    "C:\\Users\\drago\\OneDrive\\Documents\\PeP5\\PeP5.0-WebClientExaminationPlatform\\AIExamIDE\\client\\AIExamIDE.csproj": {}
   },
   "projects": {
-    "C:\\Users\\z005612k\\Desktop\\PeP\\V5Old\\AIExamIDE\\client\\AIExamIDE.csproj": {
+    "C:\\Users\\drago\\OneDrive\\Documents\\PeP5\\PeP5.0-WebClientExaminationPlatform\\AIExamIDE\\client\\AIExamIDE.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\z005612k\\Desktop\\PeP\\V5Old\\AIExamIDE\\client\\AIExamIDE.csproj",
+        "projectUniqueName": "C:\\Users\\drago\\OneDrive\\Documents\\PeP5\\PeP5.0-WebClientExaminationPlatform\\AIExamIDE\\client\\AIExamIDE.csproj",
         "projectName": "AIExamIDE",
-        "projectPath": "C:\\Users\\z005612k\\Desktop\\PeP\\V5Old\\AIExamIDE\\client\\AIExamIDE.csproj",
-        "packagesPath": "C:\\Users\\z005612k\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\z005612k\\Desktop\\PeP\\V5Old\\AIExamIDE\\client\\obj\\",
+        "projectPath": "C:\\Users\\drago\\OneDrive\\Documents\\PeP5\\PeP5.0-WebClientExaminationPlatform\\AIExamIDE\\client\\AIExamIDE.csproj",
+        "packagesPath": "C:\\Users\\drago\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\drago\\OneDrive\\Documents\\PeP5\\PeP5.0-WebClientExaminationPlatform\\AIExamIDE\\client\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\z005612k\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\drago\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net9.0"
