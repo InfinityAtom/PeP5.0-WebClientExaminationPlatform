@@ -1,4 +1,9 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
 
 <div class="page">
     <main>
@@ -14,7 +19,7 @@
         An unhandled exception has occurred. See browser dev tools for details.
     </environment>
     <a href="" class="reload">Reload</a>
-    <a class="dismiss">🗙</a>
+    <a class="dismiss">✖</a>
 </div>
 
 <style>
@@ -29,21 +34,6 @@
         width: 100%;
         z-index: 1000;
     }
-.app-shell.blocked {
-    position: relative;
-    pointer-events: none;
-    user-select: none;
-}
-
-.app-shell.blocked::after {
-    content: "";
-    position: absolute;
-    inset: 0;              /* top:0; right:0; bottom:0; left:0 */
-    background: white;     /* solid white overlay */
-    z-index: 9999;
-}
-
-}
 
     #blazor-error-ui .dismiss {
         cursor: pointer;
@@ -52,3 +42,4 @@
         top: 0.5rem;
     }
 </style>
+

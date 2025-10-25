@@ -1,0 +1,713 @@
+@page "/teacher/classes"
+@layout PortalLayout
+@rendermode InteractiveServer
+@using AIExamIDE.Models
+@inject AIExamIDE.Services.ApiClient Api
+@inject AIExamIDE.Services.AuthState Auth
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@* Removed dialog component usage; using inline form *@
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+  <MudStack Spacing="3">
+    <MudStack Spacing="2">
+      <MudText Typo="Typo.h4">Class Management</MudText>
+      <!-- Inline Create Class Form -->
+      <MudPaper Class="pa-3" Elevation="1">
+        <MudStack Row Spacing="2" AlignItems="AlignItems.End">
+          <MudTextField @bind-Value="NewClassName" Label="New Class Name" Placeholder="e.g., Programming Fundamentals" Immediate="true" Style="flex:1" />
+          <MudButton StartIcon="@Icons.Material.Filled.Add" Color="Color.Primary" Variant="Variant.Filled"
+                     Disabled="@DisableCreateButton"
+                     OnClick="CreateClassInline">Create</MudButton>
+        </MudStack>
+        @if (IsCreatingClass)
+        {
+          <MudProgressLinear Indeterminate="true" Color="Color.Info" Class="mt-2" />
+        }
+      </MudPaper>
+    </MudStack>
+
+    @if (Loading)
+    {
+      <MudProgressLinear Indeterminate="true" />
+    }
+    else if (ClassesList.Any())
+    {
+      <MudGrid>
+        @foreach (var examClass in ClassesList)
+        {
+          <MudItem xs="12" lg="6">
+            <MudCard Outlined="true">
+              <MudCardHeader>
+                <CardHeaderContent>
+                  <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    @if (EditingClassId == examClass.Id)
+                    {
+                      <MudStack Row AlignItems="AlignItems.Center" Spacing="2" Style="flex:1">
+                        <MudTextField @bind-Value="EditingClassName" Label="Edit Name" Immediate="true" Style="flex:1" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Check" Color="Color.Success" Size="Size.Small" Disabled="@DisableEditSaveButton" OnClick="SaveEditClass" Title="Save" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" Color="Color.Secondary" Size="Size.Small" Disabled="@IsSavingEdit" OnClick="CancelEdit" Title="Cancel" />
+                      </MudStack>
+                    }
+                    else
+                    {
+                      <MudText Typo="Typo.h6">@examClass.Name</MudText>
+                      <MudStack Row Spacing="1">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Info" 
+                                       OnClick="@(() => StartEditClass(examClass))" Title="Edit Class" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" 
+                                       OnClick="@(() => DeleteClass(examClass))" Title="Delete Class" />
+                      </MudStack>
+                    }
+                  </MudStack>
+                </CardHeaderContent>
+              </MudCardHeader>
+              <MudCardContent>
+                <MudStack Spacing="2">
+                  <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Small" />
+                    <MudText Typo="Typo.body2">@GetStudentCount(examClass.Id) students enrolled</MudText>
+                  </MudStack>
+                  
+                  <MudDivider />
+                  
+                  <!-- Student List -->
+                  @if (ClassStudents.ContainsKey(examClass.Id) && ClassStudents[examClass.Id].Any())
+                  {
+                    <MudText Typo="Typo.subtitle2">Enrolled Students:</MudText>
+                    <MudStack Spacing="1">
+                      @foreach (var student in ClassStudents[examClass.Id])
+                      {
+                        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="pa-2" Style="background-color: #f5f5f5; border-radius: 4px;">
+                          <MudStack>
+                            <MudText Typo="Typo.body2">@GetStudentName(student)</MudText>
+                            <MudText Typo="Typo.caption" Style="color: #666;">@GetStudentEmail(student)</MudText>
+                          </MudStack>
+                          <MudIconButton Icon="@Icons.Material.Filled.Remove" Size="Size.Small" Color="Color.Error"
+                                         OnClick="@(() => RemoveStudentFromClass(examClass.Id, GetStudentId(student)))" 
+                                         Title="Remove from class" />
+                        </MudStack>
+                      }
+                    </MudStack>
+                  }
+                  else
+                  {
+                    <MudAlert Severity="Severity.Info" Dense="true">No students enrolled yet.</MudAlert>
+                  }
+                  
+                  <!-- Add Student Section -->
+                  <MudDivider />
+                  <MudText Typo="Typo.subtitle2">Add New Student:</MudText>
+                  <MudStack Row Spacing="2" AlignItems="AlignItems.End">
+                    <MudTextField @bind-Value="NewStudentEmails[examClass.Id]" Label="Student Email" 
+                                  Placeholder="student@example.com" Style="flex: 1;" />
+                    <MudButton StartIcon="@Icons.Material.Filled.PersonAdd" Color="Color.Success" 
+                               OnClick="@(() => AddStudentToClass(examClass.Id))" Disabled="@(string.IsNullOrWhiteSpace(GetNewStudentEmail(examClass.Id)))">
+                      Add
+                    </MudButton>
+                  </MudStack>
+                  <!-- Search & Bulk Add -->
+                  <MudDivider Class="mt-3" />
+                  <MudText Typo="Typo.subtitle2">Search Students (type to filter):</MudText>
+                  <MudStack Row Spacing="2" AlignItems="AlignItems.End" Class="mb-1">
+                    <MudTextField Value="@StudentSearchQuery[examClass.Id]" ValueChanged="@( (string v) => OnSearchInputChanged(examClass.Id, v))" Label="Search" Placeholder="min 2 chars" Immediate="true" Style="flex:1" />
+                    <MudButton StartIcon="@Icons.Material.Filled.Clear" Color="Color.Secondary" Variant="Variant.Text"
+                               Disabled="@IsClearDisabled(examClass.Id)"
+                               OnClick="@(() => ClearSearch(examClass.Id))">Clear</MudButton>
+                    <MudButton StartIcon="@Icons.Material.Filled.List" Color="Color.Info" Variant="Variant.Outlined"
+                               OnClick="@(() => OpenAllStudentsModal(examClass.Id))">All Students</MudButton>
+                  </MudStack>
+                  @if (SearchResults.ContainsKey(examClass.Id) && SearchResults[examClass.Id].Any())
+                  {
+                    <MudPaper Elevation="0" Class="pa-2" Style="background-color:#fafafa;border:1px solid var(--mud-palette-lines);border-radius:4px;">
+                      <MudStack Spacing="1">
+                        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                          <MudText Typo="Typo.caption">Found @SearchResults[examClass.Id].Count students</MudText>
+                          <MudButton StartIcon="@Icons.Material.Filled.PersonAdd" Color="Color.Success" Variant="Variant.Filled"
+                                     Disabled="@BulkAddDisabled(examClass.Id)"
+                                     OnClick="@(() => BulkAddSelected(examClass.Id))">
+                            @(IsBulkAdding ? "Adding..." : "Add Selected")
+                          </MudButton>
+                        </MudStack>
+                        <MudTable Items="@SearchResults[examClass.Id]" Dense="true" Hover="true">
+                          <HeaderContent>
+                            <MudTh>Select</MudTh>
+                            <MudTh>Email</MudTh>
+                            <MudTh>Name</MudTh>
+                          </HeaderContent>
+                          <RowTemplate Context="stu">
+                            <MudTd>
+                              <MudCheckBox T="bool" Value="@GetSelectionBinding(examClass.Id, stu.Id)" ValueChanged="@((bool v) => SetSelectionBinding(examClass.Id, stu.Id, v))" />
+                            </MudTd>
+                            <MudTd>@stu.Email</MudTd>
+                            <MudTd>@stu.Name</MudTd>
+                          </RowTemplate>
+                        </MudTable>
+                        <MudText Typo="Typo.caption" Class="mt-1">Selected: @GetSelectedCount(examClass.Id)</MudText>
+                      </MudStack>
+                    </MudPaper>
+                  }
+                </MudStack>
+              </MudCardContent>
+            </MudCard>
+          </MudItem>
+        }
+      </MudGrid>
+    }
+    else
+    {
+      <MudAlert Severity="Severity.Info">
+        No classes created yet. Click "Create Class" to get started with managing student groups.
+      </MudAlert>
+    }
+  </MudStack>
+</MudContainer>
+
+@if (ShowAllStudentsModal)
+{
+  <div class="mud-overlay" style="position:fixed;inset:0;z-index:1300;background:rgba(0,0,0,0.4);display:flex;align-items:flex-start;justify-content:center;padding-top:5vh;">
+    <MudPaper Class="pa-4" Style="width:90%;max-width:1000px;max-height:85vh;overflow:auto;">
+      <MudStack Spacing="2">
+        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+          <MudText Typo="Typo.h6">All Students (@AllStudents.Count)</MudText>
+          <MudStack Row Spacing="1">
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="@IsAllStudentsLoading" OnClick="LoadAllStudents">Refresh</MudButton>
+            <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="CloseAllStudentsModal">Close</MudButton>
+          </MudStack>
+        </MudStack>
+        @if (IsAllStudentsLoading)
+        {
+          <MudProgressLinear Indeterminate="true" />
+        }
+        else if (!AllStudents.Any())
+        {
+          <MudAlert Severity="Severity.Info">No students found.</MudAlert>
+        }
+        else
+        {
+          <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info" OnClick="@SelectAllVisible">Select All</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" OnClick="@ClearAllSelection">Clear Selection</MudButton>
+            <MudText Typo="Typo.caption">Selected: @GetSelectedCount(ActiveClassForAllModal ?? 0)</MudText>
+            <MudSwitch T="bool" @bind-Checked="ShowEnrolledInModal" Color="Color.Primary" CheckedIcon="@Icons.Material.Filled.Visibility" UncheckedIcon="@Icons.Material.Filled.VisibilityOff" />
+            <MudText Typo="Typo.caption">Show enrolled</MudText>
+            <MudSwitch T="bool" @bind-Checked="UseVirtualScroll" Color="Color.Secondary" CheckedIcon="@Icons.Material.Filled.ViewStream" UncheckedIcon="@Icons.Material.Filled.TableRows" />
+            <MudText Typo="Typo.caption">Virtual scroll</MudText>
+          </MudStack>
+          <MudTable Items="@AllStudents" Dense="true" Hover="true" Filter="new Func<UserInfo,bool>(FilterAllStudents)" Virtualize="@UseVirtualScroll">
+            <ToolBarContent>
+              <MudTextField @bind-Value="AllStudentsFilter" Placeholder="Filter students..." Variant="Variant.Outlined" Size="Size.Small" />
+            </ToolBarContent>
+            <HeaderContent>
+              <MudTh>Select</MudTh>
+              <MudTh>Email</MudTh>
+              <MudTh>Name</MudTh>
+              <MudTh>Role</MudTh>
+            </HeaderContent>
+            <RowTemplate Context="stu">
+              <MudTd>
+                <MudCheckBox T="bool" Value="@GetSelectionBinding(ActiveClassForAllModal ?? 0, stu.Id)" ValueChanged="@((bool v) => SetSelectionBinding(ActiveClassForAllModal ?? 0, stu.Id, v))" Disabled="@IsStudentEnrolled(stu.Id)" />
+              </MudTd>
+              <MudTd>@stu.Email</MudTd>
+              <MudTd>
+                @stu.Name
+                @if (IsStudentEnrolled(stu.Id))
+                {
+                  <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Outlined" Class="ml-1">Enrolled</MudChip>
+                }
+              </MudTd>
+              <MudTd>@stu.Role</MudTd>
+            </RowTemplate>
+          </MudTable>
+          <MudStack Row Justify="Justify.FlexEnd" Spacing="2" Class="mt-2">
+            <MudButton StartIcon="@Icons.Material.Filled.PersonAdd" Color="Color.Success" Disabled="@IsModalBulkAddDisabled()" OnClick="@(() => BulkAddSelected(ActiveClassForAllModal!.Value))">Add Selected To Class</MudButton>
+          </MudStack>
+        }
+      </MudStack>
+    </MudPaper>
+  </div>
+}
+
+<!-- Dialog content now provided via DialogService (ClassEditDialog component) -->
+
+@code {
+  private List<ExamClass> ClassesList = new();
+  private Dictionary<int, List<ClassStudent>> ClassStudents = new();
+  private Dictionary<int, string> NewStudentEmails = new();
+  private bool Loading = false;
+
+  // Removed inline dialog state; handled via DialogService and ClassEditDialog component
+  private int? EditingClassId = null;
+  private string EditingClassName = string.Empty;
+  private bool IsSavingEdit = false;
+
+  // Inline create state
+  private string NewClassName = string.Empty;
+  private bool IsCreatingClass = false;
+
+  // Search state per class
+  private Dictionary<int, string> StudentSearchQuery = new();
+  private Dictionary<int, List<UserInfo>> SearchResults = new();
+  private Dictionary<int, HashSet<int>> SelectedSearchStudents = new();
+  private bool IsSearchingStudents = false;
+  private bool IsBulkAdding = false;
+  // All students modal state
+  private bool ShowAllStudentsModal = false;
+  private bool IsAllStudentsLoading = false;
+  private int? ActiveClassForAllModal = null;
+  private List<UserInfo> AllStudents = new();
+  private string AllStudentsFilter = string.Empty;
+  private bool ShowEnrolledInModal = false; // toggle to include already enrolled students
+  private bool UseVirtualScroll = false; // toggle to switch to virtualization for large lists
+
+  // Defer JS-interactive auth initialization until after first render to avoid prerender JSInterop exception
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender) return;
+    await Auth.InitializeAsync();
+    if (!Auth.IsTeacher)
+    {
+      Nav.NavigateTo("/login");
+      return;
+    }
+    await LoadData();
+    StateHasChanged(); // ensure UI updates after async work post first render
+  }
+
+  private async Task LoadData()
+  {
+    Loading = true;
+    try
+    {
+      ClassesList = await Api.GetClassesAsync();
+      
+      // Initialize student email inputs
+      NewStudentEmails.Clear();
+      foreach (var examClass in ClassesList)
+      {
+        NewStudentEmails[examClass.Id] = "";
+        StudentSearchQuery[examClass.Id] = "";
+        SearchResults[examClass.Id] = new List<UserInfo>();
+        SelectedSearchStudents[examClass.Id] = new HashSet<int>();
+      }
+      
+      // Load students for each class
+      ClassStudents.Clear();
+      foreach (var examClass in ClassesList)
+      {
+        try
+        {
+          var students = await Api.GetClassStudentsAsync(examClass.Id);
+          ClassStudents[examClass.Id] = students;
+        }
+        catch
+        {
+          ClassStudents[examClass.Id] = new List<ClassStudent>();
+        }
+      }
+
+      RebuildGlobalEnrolledSet();
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error loading classes: {ex.Message}", Severity.Error);
+    }
+    finally
+    {
+      Loading = false;
+    }
+  }
+  private int GetStudentCount(int classId)
+  {
+    return ClassStudents.ContainsKey(classId) ? ClassStudents[classId].Count : 0;
+  }
+
+  private string GetNewStudentEmail(int classId)
+  {
+    return NewStudentEmails.ContainsKey(classId) ? NewStudentEmails[classId] : "";
+  }
+
+  private string GetStudentName(ClassStudent student) =>
+    student.Student?.Name ?? "Unknown";
+
+  private string GetStudentEmail(ClassStudent student) =>
+    student.Student?.Email ?? "";
+
+  private int GetStudentId(ClassStudent student) => student.StudentId;
+
+  private async Task CreateClassInline()
+  {
+    var name = NewClassName.Trim();
+    if (string.IsNullOrWhiteSpace(name) || name.Length < 2) return;
+    IsCreatingClass = true;
+    try
+    {
+      var created = await Api.CreateClassAsync(name);
+      ClassesList.Add(created);
+      NewStudentEmails[created.Id] = "";
+      ClassStudents[created.Id] = new List<ClassStudent>();
+      StudentSearchQuery[created.Id] = string.Empty;
+      SearchResults[created.Id] = new List<UserInfo>();
+      SelectedSearchStudents[created.Id] = new HashSet<int>();
+      Snackbar.Add("Class created successfully", Severity.Success);
+      NewClassName = string.Empty;
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error creating class: {ex.Message}", Severity.Error);
+    }
+    finally
+    {
+      IsCreatingClass = false;
+    }
+  }
+
+  private void StartEditClass(ExamClass examClass)
+  {
+    EditingClassId = examClass.Id;
+    EditingClassName = examClass.Name;
+  }
+
+  private async Task SaveEditClass()
+  {
+    if (EditingClassId is null) return;
+    var name = EditingClassName.Trim();
+    if (string.IsNullOrWhiteSpace(name) || name.Length < 2) return;
+    IsSavingEdit = true;
+    try
+    {
+      var updated = await Api.UpdateClassAsync(EditingClassId.Value, name);
+      var idx = ClassesList.FindIndex(c => c.Id == EditingClassId.Value);
+      if (idx >= 0) ClassesList[idx] = updated;
+      Snackbar.Add("Class updated successfully", Severity.Success);
+      CancelEdit();
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error updating class: {ex.Message}", Severity.Error);
+    }
+    finally
+    {
+      IsSavingEdit = false;
+    }
+  }
+
+  private void CancelEdit()
+  {
+    EditingClassId = null;
+    EditingClassName = string.Empty;
+  }
+
+  private void OpenAllStudentsModal(int classId)
+  {
+    ActiveClassForAllModal = classId;
+    ShowAllStudentsModal = true;
+    _ = LoadAllStudents();
+  }
+
+  private void CloseAllStudentsModal()
+  {
+    ShowAllStudentsModal = false;
+    AllStudentsFilter = string.Empty;
+  }
+
+  private async Task LoadAllStudents()
+  {
+    if (!ShowAllStudentsModal) return;
+    IsAllStudentsLoading = true;
+    try
+    {
+      AllStudents = await Api.GetAllStudentsAsync();
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Failed to load students: {ex.Message}", Severity.Error);
+    }
+    finally
+    {
+      IsAllStudentsLoading = false;
+      StateHasChanged();
+    }
+  }
+
+  private bool FilterAllStudents(UserInfo u)
+  {
+    // Optionally hide enrolled students when toggle is off
+    if (!ShowEnrolledInModal && GlobalEnrolledStudentIds.Contains(u.Id)) return false;
+    if (string.IsNullOrWhiteSpace(AllStudentsFilter)) return true;
+    var f = AllStudentsFilter.Trim();
+    return (u.Email?.Contains(f, StringComparison.OrdinalIgnoreCase) ?? false) || (u.Name?.Contains(f, StringComparison.OrdinalIgnoreCase) ?? false);
+  }
+
+  private void SelectAllVisible()
+  {
+    if (ActiveClassForAllModal is null) return;
+    if (!SelectedSearchStudents.ContainsKey(ActiveClassForAllModal.Value)) SelectedSearchStudents[ActiveClassForAllModal.Value] = new HashSet<int>();
+    foreach (var u in AllStudents.Where(FilterAllStudents))
+    {
+      SelectedSearchStudents[ActiveClassForAllModal.Value].Add(u.Id);
+    }
+  }
+
+  private void ClearAllSelection()
+  {
+    if (ActiveClassForAllModal is null) return;
+    if (SelectedSearchStudents.ContainsKey(ActiveClassForAllModal.Value)) SelectedSearchStudents[ActiveClassForAllModal.Value].Clear();
+  }
+
+  private async Task DeleteClass(ExamClass examClass)
+  {
+    var result = await DialogService.ShowMessageBox(
+      "Delete Class",
+      $"Are you sure you want to delete '{examClass.Name}'? This will remove all student enrollments. This action cannot be undone.",
+      yesText: "Delete", cancelText: "Cancel");
+    
+    if (result == true)
+    {
+      try
+      {
+        await Api.DeleteClassAsync(examClass.Id);
+        ClassesList.RemoveAll(c => c.Id == examClass.Id);
+        ClassStudents.Remove(examClass.Id);
+        NewStudentEmails.Remove(examClass.Id);
+        Snackbar.Add("Class deleted successfully", Severity.Success);
+      }
+      catch (Exception ex)
+      {
+        Snackbar.Add($"Error deleting class: {ex.Message}", Severity.Error);
+      }
+    }
+  }
+
+  // Removed dialog-based create/edit; now inline forms implement CRUD flows.
+
+  private async Task AddStudentToClass(int classId)
+  {
+    var email = GetNewStudentEmail(classId);
+    if (string.IsNullOrWhiteSpace(email))
+    {
+      Snackbar.Add("Please enter a student email", Severity.Warning);
+      return;
+    }
+
+    try
+    {
+      await Api.AddStudentToClassAsync(classId, studentEmail: email);
+      NewStudentEmails[classId] = "";
+      
+      // Reload students for this class
+      var students = await Api.GetClassStudentsAsync(classId);
+      ClassStudents[classId] = students;
+      
+      Snackbar.Add("Student added to class successfully!", Severity.Success);
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error adding student: {ex.Message}", Severity.Error);
+    }
+  }
+
+  private void ClearSearch(int classId)
+  {
+    if (StudentSearchQuery.ContainsKey(classId)) StudentSearchQuery[classId] = string.Empty;
+    if (SearchResults.ContainsKey(classId)) SearchResults[classId].Clear();
+    if (SelectedSearchStudents.ContainsKey(classId)) SelectedSearchStudents[classId].Clear();
+  }
+
+  private bool IsClearDisabled(int classId)
+  {
+    var hasQuery = StudentSearchQuery.ContainsKey(classId) && !string.IsNullOrWhiteSpace(StudentSearchQuery[classId]);
+    var hasResults = SearchResults.ContainsKey(classId) && SearchResults[classId].Any();
+    return !hasQuery && !hasResults;
+  }
+
+  // Debounce timers per class for typeahead search
+  private Dictionary<int, System.Timers.Timer?> _searchTimers = new();
+
+  private async Task PerformStudentSearch(int classId)
+  {
+    if (!StudentSearchQuery.ContainsKey(classId)) return;
+    var query = StudentSearchQuery[classId].Trim();
+    if (query.Length < 2) { return; }
+    IsSearchingStudents = true;
+    try
+    {
+      var results = await Api.SearchStudentsAsync(query);
+      // Filter out any student already enrolled in ANY class
+      results = results.Where(r => !GlobalEnrolledStudentIds.Contains(r.Id)).ToList();
+      SearchResults[classId] = results;
+      // Preserve previously selected IDs that are still visible
+      if (!SelectedSearchStudents.ContainsKey(classId)) SelectedSearchStudents[classId] = new HashSet<int>();
+      var currentSelection = SelectedSearchStudents[classId];
+      var resultIds = results.Select(r => r.Id).ToHashSet();
+      var toRemove = currentSelection.Where(id => !resultIds.Contains(id)).ToList();
+      foreach (var rem in toRemove) currentSelection.Remove(rem);
+      // no snackbar spam on every keystroke; only show when zero and user paused
+      if (!results.Any()) Snackbar.Add("No matching students found", Severity.Info);
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Search failed: {ex.Message}", Severity.Error);
+    }
+    finally
+    {
+      IsSearchingStudents = false;
+    }
+  }
+
+  private void OnSearchInputChanged(int classId, string value)
+  {
+    StudentSearchQuery[classId] = value;
+    if (value.Trim().Length < 2)
+    {
+      SearchResults[classId].Clear();
+      if (SelectedSearchStudents.ContainsKey(classId)) SelectedSearchStudents[classId].Clear();
+      CancelSearchTimer(classId);
+      StateHasChanged();
+      return;
+    }
+    RestartSearchTimer(classId);
+  }
+
+  private void RestartSearchTimer(int classId)
+  {
+    CancelSearchTimer(classId);
+    var timer = new System.Timers.Timer(350);
+    timer.AutoReset = false;
+    timer.Elapsed += async (_, __) =>
+    {
+      await InvokeAsync(async () =>
+      {
+        await PerformStudentSearch(classId);
+        StateHasChanged();
+      });
+    };
+    _searchTimers[classId] = timer;
+    timer.Start();
+  }
+
+  private void CancelSearchTimer(int classId)
+  {
+    if (_searchTimers.TryGetValue(classId, out var t) && t is not null)
+    {
+      t.Stop();
+      t.Dispose();
+    }
+    _searchTimers[classId] = null;
+  }
+
+  private async Task BulkAddSelected(int classId)
+  {
+    if (!SelectedSearchStudents.ContainsKey(classId) || SelectedSearchStudents[classId].Count == 0) return;
+    IsBulkAdding = true;
+    try
+    {
+      var ids = SelectedSearchStudents[classId].ToList();
+      int success = 0;
+      foreach (var id in ids)
+      {
+        try
+        {
+          await Api.AddStudentToClassAsync(classId, studentId: id);
+          success++;
+        }
+        catch (Exception innerEx)
+        {
+          Snackbar.Add($"Failed to add student {id}: {innerEx.Message}", Severity.Error);
+        }
+      }
+      var students = await Api.GetClassStudentsAsync(classId);
+      ClassStudents[classId] = students;
+      // Update global enrolled set
+      RebuildGlobalEnrolledSet();
+      // Clean selection sets: remove any IDs now enrolled globally
+      foreach (var kvSel in SelectedSearchStudents)
+      {
+        kvSel.Value.RemoveWhere(id => GlobalEnrolledStudentIds.Contains(id));
+      }
+      // Remove added students from all search result lists
+      foreach (var kv in SearchResults.ToList())
+      {
+        kv.Value.RemoveAll(u => GlobalEnrolledStudentIds.Contains(u.Id));
+      }
+  // Do NOT mutate AllStudents; filtering hides enrolled students dynamically.
+      SelectedSearchStudents[classId].Clear();
+      Snackbar.Add($"Added {success} student(s) to class", Severity.Success);
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Bulk add failed: {ex.Message}", Severity.Error);
+    }
+    finally
+    {
+      IsBulkAdding = false;
+    }
+  }
+
+  private bool GetSelectionBinding(int classId, int studentId)
+  {
+    if (!SelectedSearchStudents.ContainsKey(classId)) SelectedSearchStudents[classId] = new HashSet<int>();
+    return SelectedSearchStudents[classId].Contains(studentId);
+  }
+  private void SetSelectionBinding(int classId, int studentId, bool value)
+  {
+    if (!SelectedSearchStudents.ContainsKey(classId)) SelectedSearchStudents[classId] = new HashSet<int>();
+    if (value) SelectedSearchStudents[classId].Add(studentId); else SelectedSearchStudents[classId].Remove(studentId);
+    StateHasChanged();
+  }
+
+  private int GetSelectedCount(int classId)
+  {
+    return SelectedSearchStudents.ContainsKey(classId) ? SelectedSearchStudents[classId].Count : 0;
+  }
+
+  // Global enrolled students set used to filter lists
+  private HashSet<int> GlobalEnrolledStudentIds = new();
+  private void RebuildGlobalEnrolledSet()
+  {
+    GlobalEnrolledStudentIds = ClassStudents.Values
+      .SelectMany(list => list.Select(cs => GetStudentId(cs)))
+      .ToHashSet();
+  }
+
+  private async Task RemoveStudentFromClass(int classId, int studentId)
+  {
+    try
+    {
+      await Api.RemoveStudentFromClassAsync(classId, studentId);
+      
+      // Remove from local list
+      if (ClassStudents.ContainsKey(classId))
+      {
+        ClassStudents[classId] = ClassStudents[classId].Where(s => GetStudentId(s) != studentId).ToList();
+      }
+      // Rebuild global set so student becomes visible again in modal lists
+      RebuildGlobalEnrolledSet();
+      // Ensure selection doesn't erroneously include removed student for other classes
+      foreach (var kvSel in SelectedSearchStudents)
+      {
+        kvSel.Value.Remove(studentId); // safe: removal if present
+      }
+      if (ShowAllStudentsModal)
+      {
+        StateHasChanged();
+      }
+      
+      Snackbar.Add("Student removed from class", Severity.Success);
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error removing student: {ex.Message}", Severity.Error);
+    }
+  }
+
+  private bool IsStudentEnrolled(int studentId) => GlobalEnrolledStudentIds.Contains(studentId);
+
+  // Removed dialog autofocus logic; inline fields rely on Immediate binding.
+
+  // Computed button disable states
+  private bool DisableCreateButton => IsCreatingClass || string.IsNullOrWhiteSpace(NewClassName) || NewClassName.Trim().Length < 2;
+  private bool DisableEditSaveButton => IsSavingEdit || EditingClassId is null || string.IsNullOrWhiteSpace(EditingClassName) || EditingClassName.Trim().Length < 2;
+  private bool BulkAddDisabled(int classId) => !SelectedSearchStudents.ContainsKey(classId) || SelectedSearchStudents[classId].Count == 0 || IsBulkAdding;
+  private bool IsModalBulkAddDisabled() => ActiveClassForAllModal is null || BulkAddDisabled(ActiveClassForAllModal.Value);
+}

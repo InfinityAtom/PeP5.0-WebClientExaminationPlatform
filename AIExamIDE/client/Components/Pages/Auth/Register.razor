@@ -1,0 +1,122 @@
+@page "/register"
+@layout PortalLayout
+@rendermode InteractiveServer
+@using MudBlazor
+@inject ApiClient Api
+@inject AuthState Auth
+@inject NavigationManager Nav
+
+<MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="mt-6">
+    <MudPaper Class="pa-4" Elevation="2">
+        <MudStack Spacing="2">
+            <MudText Typo="Typo.h5" Align="Align.Center">Create an account</MudText>
+
+            @if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                <MudAlert Severity="Severity.Error">@ErrorMessage</MudAlert>
+            }
+
+            <MudForm @ref="_form">
+                <MudTextField @bind-Value="Name" Label="Name" Variant="Variant.Outlined" Required="true" Disabled="IsBusy" />
+                <MudTextField @bind-Value="Email" Label="Email" Variant="Variant.Outlined" Required="true" Disabled="IsBusy" Class="mt-2" />
+                <MudTextField @bind-Value="Password" Label="Password" Variant="Variant.Outlined" InputType="InputType.Password" Required="true" Disabled="IsBusy" Class="mt-2" />
+                <MudSelect T="string" @bind-Value="Role" Label="Role" Variant="Variant.Outlined" Disabled="IsBusy" Class="mt-2">
+                    <MudSelectItem Value="_teacherRole">Teacher</MudSelectItem>
+                    <MudSelectItem Value="_studentRole">Student</MudSelectItem>
+                </MudSelect>
+                <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="IsBusy" ButtonType="ButtonType.Button" Class="mt-3" StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="DoRegister">
+                    Register
+                </MudButton>
+            </MudForm>
+
+            <MudDivider Class="my-2" />
+            <MudText Typo="Typo.body2" Align="Align.Center">
+                Already have an account?
+                <MudLink Href="/login">Sign in here</MudLink>
+            </MudText>
+        </MudStack>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private MudForm? _form;
+    private string Name = string.Empty;
+    private string Email = string.Empty;
+    private string Password = string.Empty;
+    private string Role = "student";
+    private string _teacherRole = "teacher";
+    private string _studentRole = "student";
+    private bool IsBusy;
+    private string? ErrorMessage;
+    private bool _redirected;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _redirected)
+            return;
+
+        await Auth.InitializeAsync(async () =>
+        {
+            try
+            {
+                return await Api.GetCurrentUserAsync();
+            }
+            catch
+            {
+                return null;
+            }
+        });
+
+        if (Auth.IsTeacher)
+        {
+            RedirectByRole("teacher");
+            return;
+        }
+        if (Auth.IsStudent)
+        {
+            RedirectByRole("student");
+            return;
+        }
+    }
+
+    private async Task DoRegister()
+    {
+        ErrorMessage = null;
+        if (_form is null) return;
+
+        await _form.Validate();
+        if (!_form.IsValid) return;
+
+        IsBusy = true;
+        try
+        {
+            var auth = await Api.RegisterAsync(Email, Name, Password, Role);
+            RedirectByRole(auth.User.Role);
+        }
+        catch (HttpRequestException ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+            Console.WriteLine($"Registration error: {ex}");
+        }
+        finally
+        {
+            IsBusy = false;
+            StateHasChanged();
+        }
+    }
+
+    private void RedirectByRole(string role)
+    {
+        _redirected = true;
+        if (role == "teacher")
+            Nav.NavigateTo("/teacher/dashboard");
+        else if (role == "student")
+            Nav.NavigateTo("/student/dashboard");
+        else
+            Nav.NavigateTo("/");
+    }
+}

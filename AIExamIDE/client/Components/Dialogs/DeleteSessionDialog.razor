@@ -1,0 +1,92 @@
+@using MudBlazor
+@using AIExamIDE.Models
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Warning" Style="font-size: 3rem;" />
+                <MudText Typo="Typo.h6" Color="Color.Warning">Delete Exam Session</MudText>
+            </MudStack>
+            
+            <MudAlert Severity="Severity.Warning" Dense="false">
+                <MudText>Are you sure you want to delete the exam session:</MudText>
+                <MudText Typo="Typo.subtitle1" Style="font-weight: 600; margin: 8px 0;">
+                    @(string.IsNullOrWhiteSpace(Session?.Title) ? "Untitled Session" : Session.Title)
+                </MudText>
+                <MudText Style="color: #666;">
+                    <strong>Date:</strong> @Session?.Date<br />
+                    <strong>Time:</strong> @Session?.StartTime - @Session?.EndTime<br />
+                    <strong>Room:</strong> @Session?.RoomName
+                </MudText>
+            </MudAlert>
+
+            @if (HasBookings)
+            {
+                <MudAlert Severity="Severity.Error" Dense="false">
+                    <MudStack Spacing="1">
+                        <MudText Style="font-weight: 600;">⚠️ Warning: Students have booked this session!</MudText>
+                        <MudText>This session has <strong>@BookingCount student booking(s)</strong>. Deleting this session will:</MudText>
+                        <MudList T="string" Dense="true" Style="margin-left: 16px;">
+                            <MudListItem T="string" Icon="@Icons.Material.Filled.Cancel" IconColor="Color.Error">
+                                Cancel all student bookings immediately
+                            </MudListItem>
+                            <MudListItem T="string" Icon="@Icons.Material.Filled.Delete" IconColor="Color.Error">
+                                Remove all associated data permanently
+                            </MudListItem>
+                            <MudListItem T="string" Icon="@Icons.Material.Filled.NotificationImportant" IconColor="Color.Error">
+                                Students will lose their reserved seats
+                            </MudListItem>
+                        </MudList>
+                    </MudStack>
+                </MudAlert>
+
+                <MudStack Spacing="1">
+                    <MudCheckBox T="bool"
+                                 @bind-Checked="ConfirmForceDelete"
+                                 Color="Color.Error"
+                                 Dense="true"
+                                 Label="I understand the consequences and want to delete this session even with existing bookings"
+                                 OnChanged="OnForceChanged" />
+                    <MudChip T="string" Color="@(ConfirmForceDelete ? Color.Error : Color.Default)" Variant="Variant.Filled" Size="Size.Small">
+                        Force delete: @(ConfirmForceDelete ? "ENABLED" : "disabled")
+                    </MudChip>
+                </MudStack>
+            }
+
+            <MudStack Row Justify="Justify.FlexEnd" Spacing="2">
+                <MudButton Variant="Variant.Text" OnClick="@Cancel">Cancel</MudButton>
+                <MudButton Variant="Variant.Filled"
+                          Color="@(HasBookings ? (ConfirmForceDelete ? Color.Error : Color.Default) : Color.Error)"
+                          Style="@(HasBookings && ConfirmForceDelete ? "box-shadow: 0 0 0 3px rgba(244,67,54,0.4); font-weight:600;" : null)"
+                          OnClick="@Confirm"
+                          StartIcon="@(HasBookings ? (ConfirmForceDelete ? Icons.Material.Filled.DeleteForever : Icons.Material.Filled.Lock) : Icons.Material.Filled.DeleteForever)"
+                          Disabled="@(HasBookings && !ConfirmForceDelete)"
+                          Class="force-delete-btn">
+                    @(HasBookings ? (ConfirmForceDelete ? "Force Delete Enabled" : "Force Delete (tick checkbox)") : "Delete Session")
+                </MudButton>
+            </MudStack>
+        </MudStack>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [CascadingParameter] public MudBlazor.IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public ExamSession Session { get; set; } = default!;
+    [Parameter] public bool HasBookings { get; set; } = false;
+    [Parameter] public int BookingCount { get; set; } = 0;
+
+    private bool ConfirmForceDelete = false;
+
+    private void OnForceChanged(bool value)
+    {
+        ConfirmForceDelete = value;
+        // Optional: could trigger a brief snackbar or animation here.
+        StateHasChanged();
+    }
+
+    private void Confirm() => MudDialog.Close(DialogResult.Ok(new DeleteSessionResult(Session.Id, HasBookings, ConfirmForceDelete)));
+    private void Cancel() => MudDialog.Cancel();
+
+    public record DeleteSessionResult(int SessionId, bool HasBookings, bool ForceDelete);
+}

@@ -1,30 +1,80 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">AIExamIDE</a>
-    </div>
-</div>
+@implements IDisposable
+@inject AuthState Auth
+@inject NavigationManager Nav
+@using MudBlazor
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+<MudNavMenu>
+    <MudNavLink Href="/" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All">Home</MudNavLink>
+    
+    @if (!Auth.IsAuthenticated)
+    {
+        <MudNavLink Href="/login" Icon="@Icons.Material.Filled.Login">Login</MudNavLink>
+        <MudNavLink Href="/register" Icon="@Icons.Material.Filled.PersonAdd">Register</MudNavLink>
+    }
+    else
+    {
+        <MudNavLink Href="/exam" Icon="@Icons.Material.Filled.PlayCircle">Exam IDE</MudNavLink>
+    }
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
+    @if (Auth.IsTeacher)
+    {
+        <MudNavGroup Title="Teacher" Icon="@Icons.Material.Filled.ManageAccounts">
+            <MudNavLink Href="/teacher/dashboard" Icon="@Icons.Material.Filled.Dashboard">Dashboard</MudNavLink>
+            <MudNavLink Href="/teacher/rooms" Icon="@Icons.Material.Filled.GridView">Exam Rooms</MudNavLink>
+            <MudNavLink Href="/teacher/sessions" Icon="@Icons.Material.Filled.Event">Exam Sessions</MudNavLink>
+            <MudNavLink Href="/teacher/submissions" Icon="@Icons.Material.Filled.Assignment">Submissions</MudNavLink>
+            <MudNavLink Href="/teacher/classes" Icon="@Icons.Material.Filled.People">Classes</MudNavLink>
+            <MudNavLink Href="/teacher/computers" Icon="@Icons.Material.Filled.Computer">Computer Configuration</MudNavLink>
+            <MudNavLink Href="/teacher/practice-tests" Icon="@Icons.Material.Filled.Quiz">Practice Tests</MudNavLink>
+            <MudNavLink Href="/teacher/fallback" Icon="@Icons.Material.Filled.Build">Fallback Exam</MudNavLink>
+        </MudNavGroup>
+    }
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
+    @if (Auth.IsStudent)
+    {
+        <MudNavGroup Title="Student" Icon="@Icons.Material.Filled.Person">
+            <MudNavLink Href="/student/dashboard" Icon="@Icons.Material.Filled.Dashboard">Dashboard</MudNavLink>
+            <MudNavLink Href="/student/book" Icon="@Icons.Material.Filled.EventSeat">Book Exam</MudNavLink>
+            <MudNavLink Href="/student/exams" Icon="@Icons.Material.Filled.History">My Exams</MudNavLink>
+            <MudNavLink Href="/student/practice-tests" Icon="@Icons.Material.Filled.Quiz">Practice Tests</MudNavLink>
+            <MudNavLink Href="/student/classes" Icon="@Icons.Material.Filled.People">My Classes</MudNavLink>
+        </MudNavGroup>
+    }
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
-    </nav>
-</div>
+    @if (Auth.IsAuthenticated)
+    {
+        <MudDivider />
+        <MudNavLink OnClick="Logout" Icon="@Icons.Material.Filled.Logout">
+            @(Auth.User?.Email ?? Auth.User?.Name ?? "User") (Logout)
+        </MudNavLink>
+    }
+</MudNavMenu>
 
+@code {
+    private bool _initialized;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        Auth.StateChanged += HandleAuthChanged;
+        if (!_initialized)
+        {
+            await Auth.InitializeAsync();
+            _initialized = true;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Logout()
+    {
+        await Auth.LogoutAsync();
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
+
+    private void HandleAuthChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Auth.StateChanged -= HandleAuthChanged;
+    }
+}

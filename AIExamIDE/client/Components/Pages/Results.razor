@@ -12,10 +12,6 @@
 
 <PageTitle>Evaluation Results</PageTitle>
 
-<MudThemeProvider />
-<MudPopoverProvider />
-<MudDialogProvider />
-<MudSnackbarProvider />
 
 @if (ExamState.LastEvaluation == null)
 {
@@ -145,7 +141,7 @@ else
 }
 
 @code {
-    private void GoHome() => Nav.NavigateTo("/");
+    private void GoHome() => Nav.NavigateTo("/exam");
     private RenderFragment TaskCard(string title, EvaluationTask task) => __builder =>
     {
         <MudItem xs="12" md="6">

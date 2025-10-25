@@ -1,0 +1,63 @@
+﻿
+# .NET / Blazor
+# Build Artifacts
+# Coverage / Reports
+# Database / Data
+# Environment / Secrets
+# General
+# Generated assets
+# Logs / Temp
+# Node
+# Publish / Deployment
+# Visual Studio / Rider
+*.bak
+*.cache
+*.coverage
+*.coveragexml
+*.dbmdl
+*.dll
+*.exe
+*.generated.cs
+*.local.json
+*.log
+*.ncrunchsolution
+*.pdb
+*.sln.docstates
+*.suo
+*.swo
+*.swp
+*.temp
+*.tmp
+*.user
+*.userosscache
+*.vcxproj.user
+*.vspscc
+*.vssscc
+.DS_Store
+.env
+.env.*
+.idea/
+.vs/
+.vscode/
+AIExamIDE/client/wwwroot/css/app.css
+AIExamIDE/client/wwwroot/js/seatmap.js.map
+AIExamIDE/server/exam_system.db*
+AIExamIDE/server/submissions/
+AIExamIDE/server/workspace/
+bin/
+coverage/
+dist/
+logs/
+node_modules/
+npm-debug.log*
+obj/
+out/
+package-lock.json
+pnpm-lock.yaml
+publish/
+secrets.json
+Thumbs.db
+tmp/
+wwwroot/dist/
+yarn-debug.log*
+yarn-error.log*

@@ -1,0 +1,34 @@
+@page "/student/practice"
+@layout PortalLayout
+@rendermode InteractiveServer
+@inject HttpClient Http
+@inject AuthState Auth
+@inject NavigationManager Nav
+<MudContainer Class="mt-4">
+  <MudText Typo="Typo.h5">Practice Tests</MudText>
+  <MudTable Items="Items">
+    <HeaderContent>
+      <MudTh>ID</MudTh><MudTh>Title</MudTh><MudTh>Type</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+      <MudTd>@context.id</MudTd>
+      <MudTd>@context.title</MudTd>
+      <MudTd>@context.type</MudTd>
+    </RowTemplate>
+  </MudTable>
+</MudContainer>
+
+@code {
+  private dynamic[] Items = System.Array.Empty<dynamic>();
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender) return;
+    await Auth.InitializeAsync();
+    if (!Auth.IsStudent) { Nav.NavigateTo("/login"); return; }
+    Http.BaseAddress = new Uri("http://localhost:3000");
+    if (!string.IsNullOrEmpty(Auth.Token)) Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", Auth.Token);
+    var json = await Http.GetStringAsync("/student/practice-tests");
+    Items = System.Text.Json.JsonSerializer.Deserialize<dynamic[]>(json) ?? System.Array.Empty<dynamic>();
+    StateHasChanged();
+  }
+}

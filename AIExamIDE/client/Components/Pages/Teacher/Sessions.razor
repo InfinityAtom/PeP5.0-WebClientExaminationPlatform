@@ -1,0 +1,438 @@
+@page "/teacher/sessions"
+@layout PortalLayout
+@rendermode InteractiveServer
+@inject AIExamIDE.Services.ApiClient Api
+@inject AIExamIDE.Services.AuthState Auth
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@using System.Linq
+@using AIExamIDE.Components.Dialogs
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+  <MudGrid>
+    <!-- Session Creation/Edit Panel -->
+    <MudItem xs="12" md="5">
+      <MudPaper Class="pa-4" Elevation="2">
+        <MudStack Spacing="3">
+          <MudText Typo="Typo.h5">
+            @(EditingSession != null ? "Edit Session" : "Create New Session")
+          </MudText>
+
+          <MudForm @ref="sessionForm" @bind-IsValid="formValid">
+            <MudSelect T="int" @bind-Value="RoomId" Label="Room" Variant="Variant.Outlined" Required="true">
+              <MudSelectItem Value="0" Disabled="true">Select a room...</MudSelectItem>
+              @foreach (var r in Rooms)
+              {
+                <MudSelectItem Value="@r.Id">@r.Name (@r.Seatmap.Desks.Count desks)</MudSelectItem>
+              }
+            </MudSelect>
+
+            <MudTextField @bind-Value="Title" Label="Session Title" Variant="Variant.Outlined" 
+                          HelperText="Optional descriptive title for this exam session" />
+
+            <MudDatePicker @bind-Date="selectedDate" Label="Exam Date" Variant="Variant.Outlined" 
+                           MinDate="DateTime.Today" Required="true" />
+
+            <MudGrid>
+              <MudItem xs="6">
+                <MudTimePicker @bind-Time="startTime" Label="Start Time" Variant="Variant.Outlined" />
+              </MudItem>
+              <MudItem xs="6">
+                <MudTimePicker @bind-Time="endTime" Label="End Time" Variant="Variant.Outlined" />
+              </MudItem>
+            </MudGrid>
+
+            <MudSelect T="string" @bind-Value="ExamType" Label="Exam Type" Variant="Variant.Outlined">
+              <MudSelectItem Value="@_JavaExamType">Java Programming</MudSelectItem>
+              <MudSelectItem Value="@_PythonExamType">Python Programming</MudSelectItem>
+              <MudSelectItem Value="@_CSharpExamType">C# Programming</MudSelectItem>
+            </MudSelect>
+
+            <MudSwitch T="bool" @bind-Checked="AiGenerated" Color="Color.Primary" 
+                       Label="Use AI-generated exam questions" />
+          </MudForm>
+
+          <MudStack Row Spacing="2">
+            <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SaveSession" 
+                       StartIcon="@Icons.Material.Filled.Save" Disabled="!formValid || Loading">
+              @(EditingSession != null ? "Update Session" : "Create Session")
+            </MudButton>
+            @if (EditingSession != null)
+            {
+              <MudButton Color="Color.Secondary" Variant="Variant.Outlined" OnClick="CancelEdit" 
+                         StartIcon="@Icons.Material.Filled.Cancel">
+                Cancel
+              </MudButton>
+            }
+          </MudStack>
+
+          @if (Loading)
+          {
+            <MudProgressLinear Indeterminate="true" />
+          }
+        </MudStack>
+      </MudPaper>
+    </MudItem>
+
+    <!-- Sessions List Panel -->
+    <MudItem xs="12" md="7">
+      <MudPaper Class="pa-4" Elevation="2">
+        <MudStack Spacing="3">
+          <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <MudText Typo="Typo.h5">My Exam Sessions (@MySessions.Count)</MudText>
+            <MudButton Color="Color.Info" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Refresh" 
+                       OnClick="LoadSessions">
+              Refresh
+            </MudButton>
+          </MudStack>
+          
+          @if (SessionsLoading)
+          {
+            <MudProgressCircular Indeterminate="true" />
+          }
+          else if (MySessions.Any())
+          {
+            <MudDataGrid T="ExamSession" Items="MySessions" Dense="true" Hover="true" 
+                         SortMode="SortMode.Single" Filterable="true">
+              <Columns>
+                <TemplateColumn Title="Date" Sortable="true" SortBy="@(x => ParseDate(x.Date))">
+                  <CellTemplate>
+                    @RenderDate(context.Item.Date)
+                  </CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.Title" Title="Title">
+                  <CellTemplate>
+                    @if (string.IsNullOrEmpty(context.Item.Title))
+                    {
+                      <MudText Style="color: #999; font-style: italic;">No title</MudText>
+                    }
+                    else
+                    {
+                      @context.Item.Title
+                    }
+                  </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="x => x.RoomName" Title="Room" />
+                <PropertyColumn Property="x => x.StartTime" Title="Start" />
+                <PropertyColumn Property="x => x.EndTime" Title="End" />
+                <PropertyColumn Property="x => x.ExamType" Title="Type">
+                  <CellTemplate>
+                    <MudChip Size="Size.Small" Color="GetExamTypeColor(context.Item.ExamType)">
+                      @context.Item.ExamType.ToUpper()
+                    </MudChip>
+                  </CellTemplate>
+                </PropertyColumn>
+                <TemplateColumn Title="AI" Sortable="false">
+                  <CellTemplate>
+                    @if (context.Item.AiGenerated)
+                    {
+                      <MudIcon Icon="@Icons.Material.Filled.Psychology" Color="Color.Success" Size="Size.Small" />
+                    }
+                    else
+                    {
+                      <MudIcon Icon="@Icons.Material.Filled.Edit" Color="Color.Info" Size="Size.Small" />
+                    }
+                  </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Actions" Sortable="false">
+                  <CellTemplate>
+                    <MudStack Row Spacing="1">
+                      <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary" 
+                                     OnClick="@(() => EditSession(context.Item))" Title="Edit Session" />
+                      <MudIconButton Icon="@Icons.Material.Filled.People" Size="Size.Small" Color="Color.Info" 
+                                     OnClick="@(() => ViewBookings(context.Item))" Title="View Bookings" />
+                      <MudIconButton Icon="@Icons.Material.Filled.Assignment" Size="Size.Small" Color="Color.Secondary" 
+                                     OnClick="@(() => ViewSubmissions(context.Item))" Title="View Submissions" />
+                      <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" 
+                                     OnClick="@(() => DeleteSession(context.Item))" Title="Delete Session" />
+                    </MudStack>
+                  </CellTemplate>
+                </TemplateColumn>
+              </Columns>
+              <PagerContent>
+                <MudDataGridPager T="ExamSession" />
+              </PagerContent>
+            </MudDataGrid>
+          }
+          else
+          {
+            <MudAlert Severity="Severity.Info">
+              No exam sessions created yet. Create your first session using the form on the left.
+            </MudAlert>
+          }
+        </MudStack>
+      </MudPaper>
+    </MudItem>
+  </MudGrid>
+</MudContainer>
+
+@code {
+  private MudForm sessionForm = default!;
+  private bool formValid;
+  private bool Loading = false;
+  private bool SessionsLoading = false;
+  private string _JavaExamType = "java";
+  private string _PythonExamType = "python";
+  private string _CSharpExamType = "csharp";
+  private List<ExamRoom> Rooms = new();
+  private List<ExamSession> MySessions = new();
+  private ExamSession? EditingSession = null;
+
+  // Form fields
+  private int RoomId = 0;
+  private string? Title;
+  private DateTime? selectedDate = DateTime.Today;
+  private TimeSpan? startTime;
+  private TimeSpan? endTime;
+  private string ExamType = "java";
+  private bool AiGenerated = true;
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender) return;
+
+    await Auth.InitializeAsync();
+    if (!Auth.IsTeacher)
+    {
+      Nav.NavigateTo("/login");
+      return;
+    }
+
+    await LoadData();
+  }
+
+  private async Task LoadData()
+  {
+    try
+    {
+      SessionsLoading = true;
+      StateHasChanged();
+
+      Rooms = await Api.GetRoomsAsync();
+      await LoadSessions();
+
+      if (Rooms.Count > 0 && RoomId == 0)
+        RoomId = Rooms[0].Id;
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error loading data: {ex.Message}", Severity.Error);
+    }
+    finally
+    {
+      SessionsLoading = false;
+      StateHasChanged();
+    }
+  }
+
+  private async Task LoadSessions()
+  {
+    try
+    {
+      MySessions = await Api.GetMySessionsAsync();
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error loading sessions: {ex.Message}", Severity.Error);
+    }
+  }
+
+  // Helper methods for DataGrid date rendering & sorting
+  private DateTime ParseDate(string? value)
+  {
+    if (string.IsNullOrWhiteSpace(value)) return DateTime.MinValue;
+    if (DateTime.TryParse(value, out var dt)) return dt;
+    return DateTime.MinValue;
+  }
+
+  private RenderFragment RenderDate(string? value) => builder =>
+  {
+    var dt = ParseDate(value);
+    var display = dt == DateTime.MinValue ? "-" : dt.ToString("yyyy-MM-dd");
+    builder.AddContent(0, display);
+  };
+
+  private async Task SaveSession()
+  {
+    if (!formValid || RoomId == 0 || !selectedDate.HasValue)
+    {
+      Snackbar.Add("Please fill in all required fields", Severity.Warning);
+      return;
+    }
+
+    try
+    {
+      Loading = true;
+      StateHasChanged();
+
+      var dateStr = selectedDate.Value.ToString("yyyy-MM-dd");
+      var startStr = startTime?.ToString(@"hh\:mm");
+      var endStr = endTime?.ToString(@"hh\:mm");
+
+      if (EditingSession != null)
+      {
+        // Update existing session
+        EditingSession.Title = Title;
+        EditingSession.Date = dateStr;
+        EditingSession.StartTime = startStr;
+        EditingSession.EndTime = endStr;
+        EditingSession.ExamType = ExamType;
+        EditingSession.AiGenerated = AiGenerated;
+        EditingSession.RoomId = RoomId;
+
+        var updated = await Api.UpdateSessionAsync(EditingSession.Id, EditingSession);
+        updated.RoomName = Rooms.FirstOrDefault(r => r.Id == updated.RoomId)?.Name;
+        
+        var index = MySessions.FindIndex(s => s.Id == EditingSession.Id);
+        if (index >= 0) MySessions[index] = updated;
+        
+        Snackbar.Add("Session updated successfully!", Severity.Success);
+        CancelEdit();
+      }
+      else
+      {
+        // Create new session
+        var created = await Api.CreateSessionAsync(RoomId, dateStr, Title, startStr, endStr, AiGenerated);
+        created.RoomName = Rooms.FirstOrDefault(r => r.Id == created.RoomId)?.Name;
+        MySessions.Insert(0, created);
+        Snackbar.Add("Session created successfully!", Severity.Success);
+        ClearForm();
+      }
+
+      StateHasChanged();
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error saving session: {ex.Message}", Severity.Error);
+    }
+    finally
+    {
+      Loading = false;
+      StateHasChanged();
+    }
+  }
+
+  private void EditSession(ExamSession session)
+  {
+    EditingSession = session;
+    RoomId = session.RoomId;
+    Title = session.Title;
+    
+    if (DateTime.TryParse(session.Date, out var date))
+      selectedDate = date;
+    
+    if (TimeSpan.TryParse(session.StartTime, out var start))
+      startTime = start;
+    
+    if (TimeSpan.TryParse(session.EndTime, out var end))
+      endTime = end;
+    
+    ExamType = session.ExamType;
+    AiGenerated = session.AiGenerated;
+    
+    StateHasChanged();
+    Snackbar.Add($"Editing session: {session.Title ?? "Untitled"}", Severity.Info);
+  }
+
+  private void CancelEdit()
+  {
+    EditingSession = null;
+    ClearForm();
+  }
+
+  private void ClearForm()
+  {
+    Title = null;
+    selectedDate = DateTime.Today;
+    startTime = null;
+    endTime = null;
+    ExamType = "java";
+    AiGenerated = true;
+    RoomId = Rooms.Any() ? Rooms[0].Id : 0;
+    StateHasChanged();
+  }
+
+  private Color GetExamTypeColor(string examType)
+  {
+    return examType?.ToLower() switch
+    {
+      "java" => Color.Primary,
+      "python" => Color.Success,
+      "csharp" => Color.Secondary,
+      _ => Color.Default
+    };
+  }
+
+  private void ViewBookings(ExamSession session)
+  {
+    Nav.NavigateTo($"/teacher/sessions/{session.Id}/bookings");
+  }
+
+  private void ViewSubmissions(ExamSession session)
+  {
+    Nav.NavigateTo($"/teacher/submissions?sessionId={session.Id}");
+  }
+
+  private async Task DeleteSession(ExamSession session)
+  {
+    try
+    {
+      // First, check if there are any bookings for this session
+      var bookings = await Api.GetSessionBookingsAsync(session.Id);
+      var hasBookings = bookings.Any();
+      var bookingCount = bookings.Count;
+
+      // Show confirmation dialog
+      var parameters = new DialogParameters
+      {
+        ["Session"] = session,
+        ["HasBookings"] = hasBookings,
+        ["BookingCount"] = bookingCount
+      };
+
+      var options = new DialogOptions 
+      { 
+        CloseButton = false, 
+        MaxWidth = MaxWidth.Medium, 
+        FullWidth = true
+      };
+
+      var dialog = await DialogService.ShowAsync<DeleteSessionDialog>("Delete Exam Session", parameters, options);
+      var result = await dialog.Result;
+
+      if (result is not null && !result.Canceled && result.Data is DeleteSessionDialog.DeleteSessionResult deleteResult)
+      {
+        // Perform the deletion
+        Loading = true;
+        StateHasChanged();
+
+        var success = await Api.DeleteSessionAsync(deleteResult.SessionId, deleteResult.ForceDelete);
+        
+        if (success)
+        {
+          // Remove from local list
+          MySessions.RemoveAll(s => s.Id == deleteResult.SessionId);
+          StateHasChanged();
+          
+          var message = hasBookings 
+            ? $"Session deleted successfully. {bookingCount} student booking(s) were cancelled."
+            : "Session deleted successfully.";
+          Snackbar.Add(message, Severity.Success);
+        }
+        else
+        {
+          Snackbar.Add("Session not found or could not be deleted.", Severity.Warning);
+        }
+      }
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error deleting session: {ex.Message}", Severity.Error);
+    }
+    finally
+    {
+      Loading = false;
+      StateHasChanged();
+    }
+  }
+}

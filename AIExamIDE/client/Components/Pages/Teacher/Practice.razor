@@ -1,0 +1,62 @@
+@page "/teacher/practice"
+@layout PortalLayout
+@rendermode InteractiveServer
+@inject HttpClient Http
+@inject AuthState Auth
+@inject NavigationManager Nav
+<MudContainer Class="mt-4">
+  <MudText Typo="Typo.h5">Practice Tests</MudText>
+  <MudStack Row Spacing="1" Class="mb-2">
+    <MudTextField @bind-Value="Title" Label="Title" />
+    <MudSelect T="string" @bind-Value="Type" Label="Type">
+      <MudSelectItem Value=@("mcq")>Multiple Choice</MudSelectItem>
+      <MudSelectItem Value=@("ide")>IDE</MudSelectItem>
+    </MudSelect>
+    <MudTextField @bind-Value="Prompt" Label="Prompt (optional)" />
+    <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Create">Create</MudButton>
+  </MudStack>
+  <MudTable Items="Items">
+    <HeaderContent>
+      <MudTh>ID</MudTh><MudTh>Title</MudTh><MudTh>Type</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+      <MudTd>@context.id</MudTd>
+      <MudTd>@context.title</MudTd>
+      <MudTd>@context.type</MudTd>
+    </RowTemplate>
+  </MudTable>
+</MudContainer>
+
+@code {
+  private string Title = string.Empty;
+  private string Type = "mcq";
+  private string Prompt = string.Empty;
+  private dynamic[] Items = System.Array.Empty<dynamic>();
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender) return;
+    await Auth.InitializeAsync();
+    if (!Auth.IsTeacher) { Nav.NavigateTo("/login"); return; }
+    await Reload();
+    StateHasChanged();
+  }
+
+  private async Task Reload()
+  {
+    Http.BaseAddress = new Uri("http://localhost:3000");
+    if (!string.IsNullOrEmpty(Auth.Token)) Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", Auth.Token);
+    var json = await Http.GetStringAsync("/teacher/practice-tests");
+    Items = System.Text.Json.JsonSerializer.Deserialize<dynamic[]>(json) ?? System.Array.Empty<dynamic>();
+  }
+
+  private async Task Create()
+  {
+    Http.BaseAddress = new Uri("http://localhost:3000");
+    if (!string.IsNullOrEmpty(Auth.Token)) Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", Auth.Token);
+    var body = new StringContent(System.Text.Json.JsonSerializer.Serialize(new { title = Title, type = Type, prompt = string.IsNullOrWhiteSpace(Prompt) ? null : Prompt }), System.Text.Encoding.UTF8, "application/json");
+    await Http.PostAsync("/teacher/practice-tests", body);
+    Title = Prompt = string.Empty; Type = "mcq";
+    await Reload();
+  }
+}

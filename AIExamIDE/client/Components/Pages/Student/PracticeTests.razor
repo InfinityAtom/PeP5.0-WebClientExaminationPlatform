@@ -1,0 +1,603 @@
+@page "/student/practice-tests"
+@layout PortalLayout
+@rendermode InteractiveServer
+@using System.Text.Json
+@using System.Linq
+@inject AIExamIDE.Services.ApiClient Api
+@inject AIExamIDE.Services.AuthState Auth
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+  @if (ShowTestInterface && SelectedTest != null)
+  {
+    <!-- Practice Test Taking Interface -->
+    <MudStack Spacing="3">
+      <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+        <MudText Typo="Typo.h4">@SelectedTest.Title</MudText>
+        <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" Color="Color.Secondary" OnClick="BackToTestList">
+          Back to Tests
+        </MudButton>
+      </MudStack>
+
+      @if (!string.IsNullOrEmpty(SelectedTest.Prompt))
+      {
+        <MudCard Outlined="true">
+          <MudCardContent>
+            <MudText Typo="Typo.h6">Instructions</MudText>
+            <MudText Typo="Typo.body1">@SelectedTest.Prompt</MudText>
+          </MudCardContent>
+        </MudCard>
+      }
+
+      @if (SelectedTest.Type == "mcq")
+      {
+        <!-- MCQ Interface -->
+        @if (McqQuestions.Any())
+        {
+          <MudCard Outlined="true">
+            <MudCardContent>
+              <MudStack Spacing="3">
+                @for (int index = 0; index < McqQuestions.Count; index++)
+                {
+                  var question = McqQuestions[index];
+                  <MudCard Outlined="true" Class="pa-3">
+                    <MudStack Spacing="2">
+                      <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.h6">Question @(index + 1)</MudText>
+                        <MudChip T="string" Color="Color.Primary" Size="Size.Small">@question.QuestionType.ToUpper()</MudChip>
+                      </MudStack>
+                      <MudText Typo="Typo.body1">@question.Text</MudText>
+                      <MudText Typo="Typo.caption" Style="color:#666">Points: @question.Points @if(question.Penalty>0){<text>| Penalty: @question.Penalty</text>}</MudText>
+                      @if (question.QuestionType == "single" || question.QuestionType == "truefalse")
+                      {
+                        // Defensive expansion to avoid index out of range during early renders
+                        if (SingleAnswers.Count <= index)
+                        {
+                          for (int grow = SingleAnswers.Count; grow <= index; grow++) SingleAnswers.Add(-1);
+                        }
+                        <MudRadioGroup T="int" @bind-SelectedOption="SingleAnswers[index]">
+                          @for (int i = 0; i < question.Options.Count; i++)
+                          {
+                            var optionIndex = i;
+                            <MudRadio T="int" Value="@optionIndex" Color="Color.Primary">
+                              @((char)('A' + optionIndex)). @question.Options[optionIndex]
+                            </MudRadio>
+                          }
+                        </MudRadioGroup>
+                      }
+                      else if (question.QuestionType == "multiple")
+                      {
+                        <MudStack Spacing="1">
+                          @for (int i = 0; i < question.Options.Count; i++)
+                          {
+                            var optionIndex = i;
+                            bool isChecked = StudentMultipleAnswers.TryGetValue(index, out var set) && set.Contains(optionIndex);
+                            <MudCheckBox T="bool" Value="@isChecked" ValueChanged="@(v => ToggleMultiple(index, optionIndex, v))" Color="Color.Primary" Label="@($"{(char)('A'+optionIndex)}. {question.Options[optionIndex]}")" />
+                          }
+                        </MudStack>
+                      }
+                    </MudStack>
+                  </MudCard>
+                }
+              </MudStack>
+            </MudCardContent>
+          </MudCard>
+        }
+      }
+      else if (SelectedTest.Type == "ide")
+      {
+        <!-- IDE Interface -->
+        <MudCard Outlined="true">
+          <MudCardContent>
+            <MudText Typo="Typo.h6" Class="mb-3">Code Editor</MudText>
+            <MudTextField @bind-Value="CodeAnswer" Lines="15" Variant="Variant.Outlined" 
+                          Placeholder="Write your code here..." />
+          </MudCardContent>
+        </MudCard>
+      }
+
+      <!-- Submit Button -->
+      <MudStack Row Justify="Justify.Center">
+        <MudButton StartIcon="@Icons.Material.Filled.Send" Color="Color.Success" Variant="Variant.Filled" 
+                   OnClick="SubmitTest" Size="Size.Large">
+          Submit Test
+        </MudButton>
+      </MudStack>
+
+      @if (EvaluationResult != null)
+      {
+        <MudDivider Class="my-4" />
+        <MudCard Outlined="true" Class="pa-3">
+          <MudCardContent>
+            <MudStack Spacing="2">
+              <MudText Typo="Typo.h5">Results</MudText>
+              <MudText Typo="Typo.subtitle1">Final Score: @EvaluationResult.Percentage%</MudText>
+              <MudText Typo="Typo.caption">Points: @EvaluationResult.TotalPointsAwarded / @EvaluationResult.TotalPointsPossible</MudText>
+              <MudDivider />
+              @if (EvaluationResult.Questions.Any())
+              {
+                <MudExpansionPanels MultiExpansion="true">
+                  @foreach(var q in EvaluationResult.Questions)
+                  {
+                    <MudExpansionPanel Text="@($"Q{q.Index+1}: {Trim(q.Text,40)}")" Icon="@Icons.Material.Filled.Help">
+                      <MudStack Spacing="1">
+                        <MudText Typo="Typo.body1">@q.Text</MudText>
+                        <MudText Typo="Typo.caption">Type: @q.Type | Awarded: @q.PointsAwarded / @q.PointsPossible</MudText>
+                        @if(q.Mistakes.Any())
+                        {
+                          <MudAlert Severity="Severity.Warning">
+                            Mistakes: @string.Join(", ", q.Mistakes)
+                          </MudAlert>
+                        }
+                        else
+                        {
+                          <MudAlert Severity="Severity.Success">Perfect!</MudAlert>
+                        }
+                        <MudList T="string" Dense="true">
+                          @for(int i=0;i<q.Options.Count;i++)
+                          {
+                            var opt = q.Options[i];
+                            bool isCorrectMulti = q.CorrectMultipleAnswers.Contains(i);
+                            bool isCorrectSingle = q.CorrectSingleAnswer == i && (q.Type=="single"||q.Type=="truefalse");
+                            bool chosenSingle = q.StudentSingleAnswer == i;
+                            bool chosenMulti = q.StudentMultipleAnswers.Contains(i);
+                            var status = "";
+                            var chipColor = Color.Default;
+                            if (isCorrectSingle || isCorrectMulti)
+                            {
+                              status = "Correct";
+                              chipColor = Color.Success;
+                            }
+                            if (chosenSingle || chosenMulti)
+                            {
+                              if (!string.IsNullOrEmpty(status))
+                              {
+                                status += ", Chosen";
+                              }
+                              else
+                              {
+                                status = "Chosen";
+                                chipColor = Color.Error;
+                              }
+                            }
+                            <MudListItem T="string">
+                              <MudText Typo="Typo.body2">@((char)('A'+i)). @opt</MudText>
+                              <MudSpacer />
+                              @if(!string.IsNullOrEmpty(status))
+                              {
+                                <MudChip T="string" Color="@chipColor" Variant="Variant.Filled" Size="Size.Small">@status</MudChip>
+                              }
+                            </MudListItem>
+                          }
+                        </MudList>
+                      </MudStack>
+                    </MudExpansionPanel>
+                  }
+                </MudExpansionPanels>
+              }
+            </MudStack>
+          </MudCardContent>
+        </MudCard>
+      }
+    </MudStack>
+  }
+  else
+  {
+    <!-- Practice Test List -->
+    <MudStack Spacing="3">
+      <MudText Typo="Typo.h4">Available Practice Tests</MudText>
+
+      @if (Loading)
+      {
+        <MudProgressLinear Indeterminate="true" />
+      }
+      else if (PracticeTestsList.Any())
+      {
+        <MudGrid>
+          @foreach (var test in PracticeTestsList)
+          {
+            <MudItem xs="12" md="6" lg="4">
+              <MudCard Outlined="true" Style="height: 100%;">
+                <MudCardHeader>
+                  <CardHeaderContent>
+                    <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                      <MudText Typo="Typo.h6">@test.Title</MudText>
+                      <MudChip T="string" Color="GetTypeColor(test.Type)" Size="Size.Small">
+                        @test.Type.ToUpper()
+                      </MudChip>
+                    </MudStack>
+                  </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                  <MudStack Spacing="2">
+                    @if (!string.IsNullOrEmpty(test.Prompt))
+                    {
+                      <MudText Typo="Typo.body2" Style="color: #666;">
+                        @(test.Prompt.Length > 120 ? test.Prompt.Substring(0, 120) + "..." : test.Prompt)
+                      </MudText>
+                    }
+                    
+                    @if (test.Type == "mcq" && !string.IsNullOrEmpty(test.ContentJson))
+                    {
+                      <MudText Typo="Typo.caption">
+                        @GetQuestionCount(test.ContentJson) questions
+                      </MudText>
+                    }
+                    
+                    <MudText Typo="Typo.caption" Style="color: #999;">
+                      Available since: @test.CreatedAt
+                    </MudText>
+                  </MudStack>
+                </MudCardContent>
+                <MudCardActions>
+                  <MudSpacer />
+                  <MudButton StartIcon="@Icons.Material.Filled.PlayArrow" Color="Color.Primary" 
+                             OnClick="@(() => StartTest(test))">
+                    Start Test
+                  </MudButton>
+                </MudCardActions>
+              </MudCard>
+            </MudItem>
+          }
+        </MudGrid>
+      }
+      else
+      {
+        <MudAlert Severity="Severity.Info">
+          No practice tests are available at the moment. Check back later!
+        </MudAlert>
+      }
+    </MudStack>
+  }
+</MudContainer>
+
+@code {
+  private List<PracticeTest> PracticeTestsList = new();
+  private bool Loading = false;
+  private bool ShowTestInterface = false;
+  private PracticeTest? SelectedTest = null;
+  
+  // MCQ Test State
+  private List<McqQuestion> McqQuestions = new();
+  // Per-question selected answer for single/truefalse (-1 if not answered)
+  private List<int> SingleAnswers = new();
+  // Per-question selected answers for multiple choice questions
+  private Dictionary<int, HashSet<int>> StudentMultipleAnswers = new();
+  
+  // IDE Test State
+  private string CodeAnswer = "";
+  // Evaluation state
+  private EvaluationDisplay? EvaluationResult;
+
+  public class McqQuestion
+  {
+    public string Text { get; set; } = "";
+    public string QuestionType { get; set; } = "single"; // single | multiple | truefalse
+    public List<string> Options { get; set; } = new();
+    public int CorrectAnswer { get; set; } = 0; // single/truefalse
+    public List<int> CorrectAnswers { get; set; } = new(); // multiple
+    public int Points { get; set; } = 1;
+    public int Penalty { get; set; } = 0;
+  }
+
+  // Ensure we can deserialize camelCase properties (text, options, correctAnswer)
+  private static readonly System.Text.Json.JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender) return;
+    await Auth.InitializeAsync();
+    if (!Auth.IsStudent)
+    {
+      Nav.NavigateTo("/login");
+      return;
+    }
+    await LoadData();
+    StateHasChanged();
+  }
+
+  private async Task LoadData()
+  {
+    Loading = true;
+    try
+    {
+      PracticeTestsList = await Api.GetAvailablePracticeTestsAsync();
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error loading practice tests: {ex.Message}", Severity.Error);
+    }
+    finally
+    {
+      Loading = false;
+    }
+  }
+
+  private Color GetTypeColor(string type)
+  {
+    return type.ToLower() switch
+    {
+      "mcq" => Color.Info,
+      "ide" => Color.Success,
+      _ => Color.Default
+    };
+  }
+
+  private int GetQuestionCount(string contentJson)
+  {
+    try
+    {
+      var content = JsonSerializer.Deserialize<List<McqQuestion>>(contentJson, _jsonOptions);
+      return content?.Count ?? 0;
+    }
+    catch
+    {
+      return 0;
+    }
+  }
+
+  private async Task StartTest(PracticeTest test)
+  {
+    try
+    {
+      SelectedTest = await Api.GetPracticeTestAsync(test.Id);
+      ShowTestInterface = true;
+      
+      if (SelectedTest.Type == "mcq" && !string.IsNullOrEmpty(SelectedTest.ContentJson))
+      {
+        // Attempt to deserialize new extended schema first
+        List<McqQuestion>? questions = null;
+        try { questions = JsonSerializer.Deserialize<List<McqQuestion>>(SelectedTest.ContentJson, _jsonOptions); }
+        catch { questions = null; }
+        if (questions != null && questions.Any())
+        {
+          McqQuestions = questions;
+        }
+        else
+        {
+          // Fallback: older simple schema (array of { text, options, correctAnswer })
+          try {
+            var legacy = JsonSerializer.Deserialize<List<LegacyQuestion>>(SelectedTest.ContentJson, _jsonOptions);
+            if (legacy != null)
+            {
+              McqQuestions = legacy.Select(l => new McqQuestion
+              {
+                Text = l.Text,
+                Options = l.Options ?? new List<string>(),
+                CorrectAnswer = l.CorrectAnswer,
+                QuestionType = "single"
+              }).ToList();
+            }
+          } catch { /* ignore */ }
+        }
+
+        // Initialize answer collections aligned by question index for ALL questions
+        SingleAnswers.Clear();
+        StudentMultipleAnswers.Clear();
+        for (int i = 0; i < McqQuestions.Count; i++)
+        {
+          var q = McqQuestions[i];
+          SingleAnswers.Add(-1); // default for every question (unused for multiple, but kept for index alignment)
+          if (q.QuestionType == "multiple")
+            StudentMultipleAnswers[i] = new HashSet<int>();
+        }
+      }
+      else if (SelectedTest.Type == "ide")
+      {
+        CodeAnswer = "";
+      }
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error loading test: {ex.Message}", Severity.Error);
+    }
+  }
+
+  private void BackToTestList()
+  {
+    ShowTestInterface = false;
+    SelectedTest = null;
+    McqQuestions.Clear();
+  SingleAnswers.Clear();
+    StudentMultipleAnswers.Clear();
+    CodeAnswer = "";
+  }
+
+  private async Task SubmitTest()
+  {
+    if (SelectedTest == null) return;
+
+    try
+    {
+      List<int>? answers = null;
+      object? data = null;
+      
+      if (SelectedTest.Type == "mcq")
+      {
+        // Ensure SingleAnswers length matches number of questions
+        while (SingleAnswers.Count < McqQuestions.Count)
+          SingleAnswers.Add(-1);
+
+        // Debug current selections
+        DebugAnswers();
+
+        var unanswered = McqQuestions.Select((q,i)=>(q,i))
+          .Where(t => (t.q.QuestionType=="single"||t.q.QuestionType=="truefalse") && SingleAnswers[t.i] == -1)
+          .ToList();
+        if (unanswered.Any())
+        {
+          var result = await DialogService.ShowMessageBox(
+            "Incomplete Test",
+            $"You have {unanswered.Count} unanswered single/true-false question(s). Submit anyway?",
+            yesText: "Submit", cancelText: "Continue");
+          if (result != true) return;
+        }
+        answers = new List<int>();
+        var multiAnswers = new Dictionary<int, List<int>>();
+        for (int i = 0; i < McqQuestions.Count; i++)
+        {
+          var q = McqQuestions[i];
+          if (q.QuestionType == "multiple")
+          {
+            if (StudentMultipleAnswers.TryGetValue(i, out var set))
+              multiAnswers[i] = set.OrderBy(x => x).ToList();
+            else
+              multiAnswers[i] = new List<int>();
+            answers.Add(-1); // placeholder for multiple choice
+          }
+          else
+          {
+            answers.Add(SingleAnswers[i]);
+          }
+        }
+        var mcqResponse = await Api.SubmitPracticeTestAsync(SelectedTest.Id, answers, data: null, multiAnswers: multiAnswers);
+        Snackbar.Add("Practice test submitted successfully!", Severity.Success);
+        ParseEvaluation(mcqResponse.EvaluationJson);
+        return;
+      }
+      else
+      {
+        if (string.IsNullOrWhiteSpace(CodeAnswer))
+        {
+          var result = await DialogService.ShowMessageBox(
+            "Empty Code",
+            "You haven't written any code. Do you want to submit anyway?",
+            yesText: "Submit", cancelText: "Continue");
+          if (result != true) return;
+        }
+        data = new { code = CodeAnswer };
+      }
+
+      var response = await Api.SubmitPracticeTestAsync(SelectedTest.Id, answers, data, null);
+      Snackbar.Add("Practice test submitted successfully!", Severity.Success);
+      ParseEvaluation(response.EvaluationJson);
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error submitting test: {ex.Message}", Severity.Error);
+    }
+  }
+
+  private void ParseEvaluation(string? evaluationJson)
+  {
+    EvaluationResult = null;
+    if (string.IsNullOrWhiteSpace(evaluationJson)) return;
+    try
+    {
+      var doc = JsonDocument.Parse(evaluationJson);
+      var root = doc.RootElement;
+      if (root.ValueKind != JsonValueKind.Object) return;
+      // Extended evaluation
+      if (root.TryGetProperty("questions", out var qElem) && qElem.ValueKind == JsonValueKind.Array)
+      {
+        var display = new EvaluationDisplay
+        {
+          TotalQuestions = root.TryGetProperty("totalQuestions", out var tq) && tq.ValueKind==JsonValueKind.Number ? tq.GetInt32() : 0,
+          TotalPointsPossible = root.TryGetProperty("totalPointsPossible", out var tpp) && tpp.ValueKind==JsonValueKind.Number ? tpp.GetInt32() : 0,
+          TotalPointsAwarded = root.TryGetProperty("totalPointsAwarded", out var tpa) && tpa.ValueKind==JsonValueKind.Number ? tpa.GetInt32() : 0,
+          Percentage = root.TryGetProperty("percentage", out var perc) && perc.ValueKind==JsonValueKind.Number ? perc.GetInt32() : (int?)null,
+        };
+        foreach (var q in qElem.EnumerateArray())
+        {
+          display.Questions.Add(new EvaluationQuestion
+          {
+            Index = q.TryGetProperty("index", out var idx) && idx.ValueKind==JsonValueKind.Number ? idx.GetInt32() : 0,
+            Type = q.TryGetProperty("type", out var typ) && typ.ValueKind==JsonValueKind.String ? typ.GetString() ?? "single" : "single",
+            Text = q.TryGetProperty("text", out var txt) && txt.ValueKind==JsonValueKind.String ? txt.GetString() ?? "" : "",
+            Options = q.TryGetProperty("options", out var opts) && opts.ValueKind==JsonValueKind.Array ? opts.EnumerateArray().Where(o=>o.ValueKind==JsonValueKind.String).Select(o=>o.GetString()??"").ToList() : new List<string>(),
+            StudentSingleAnswer = q.TryGetProperty("studentSingleAnswer", out var ss) && ss.ValueKind==JsonValueKind.Number ? ss.GetInt32() : -1,
+            StudentMultipleAnswers = q.TryGetProperty("studentMultipleAnswers", out var sma) && sma.ValueKind==JsonValueKind.Array ? sma.EnumerateArray().Where(x=>x.ValueKind==JsonValueKind.Number).Select(x=>x.GetInt32()).ToList() : new List<int>(),
+            CorrectSingleAnswer = q.TryGetProperty("correctSingleAnswer", out var cs) && cs.ValueKind==JsonValueKind.Number ? cs.GetInt32() : -1,
+            CorrectMultipleAnswers = q.TryGetProperty("correctMultipleAnswers", out var cma) && cma.ValueKind==JsonValueKind.Array ? cma.EnumerateArray().Where(x=>x.ValueKind==JsonValueKind.Number).Select(x=>x.GetInt32()).ToList() : new List<int>(),
+            PointsPossible = q.TryGetProperty("pointsPossible", out var pp) && pp.ValueKind==JsonValueKind.Number ? pp.GetInt32() : 0,
+            PointsAwarded = q.TryGetProperty("pointsAwarded", out var pa) && pa.ValueKind==JsonValueKind.Number ? pa.GetInt32() : 0,
+            Mistakes = q.TryGetProperty("mistakes", out var m) && m.ValueKind==JsonValueKind.Array ? m.EnumerateArray().Where(x=>x.ValueKind==JsonValueKind.String).Select(x=>x.GetString()??"").ToList() : new List<string>()
+          });
+        }
+        EvaluationResult = display;
+      }
+      else if (root.TryGetProperty("score", out var legacyScore))
+      {
+        // Legacy minimal evaluation
+        EvaluationResult = new EvaluationDisplay
+        {
+          Percentage = legacyScore.ValueKind==JsonValueKind.Number ? legacyScore.GetInt32() : (int?)null,
+          TotalQuestions = root.TryGetProperty("total", out var tot) && tot.ValueKind==JsonValueKind.Number ? tot.GetInt32() : 0,
+          TotalPointsPossible = root.TryGetProperty("total", out var tot2) && tot2.ValueKind==JsonValueKind.Number ? tot2.GetInt32() : 0,
+          TotalPointsAwarded = root.TryGetProperty("correct", out var corr) && corr.ValueKind==JsonValueKind.Number ? corr.GetInt32() : 0
+        };
+      }
+    }
+    catch { /* ignore parse errors */ }
+  }
+
+  private string Trim(string value, int max) => string.IsNullOrWhiteSpace(value) ? "" : (value.Length>max? value.Substring(0,max)+"..." : value);
+
+  private class EvaluationDisplay
+  {
+    public int TotalQuestions { get; set; }
+    public int TotalPointsPossible { get; set; }
+    public int TotalPointsAwarded { get; set; }
+    public int? Percentage { get; set; }
+    public List<EvaluationQuestion> Questions { get; set; } = new();
+  }
+  private class EvaluationQuestion
+  {
+    public int Index { get; set; }
+    public string Type { get; set; } = "single";
+    public string Text { get; set; } = "";
+    public List<string> Options { get; set; } = new();
+    public int StudentSingleAnswer { get; set; } = -1;
+    public List<int> StudentMultipleAnswers { get; set; } = new();
+    public int CorrectSingleAnswer { get; set; } = -1;
+    public List<int> CorrectMultipleAnswers { get; set; } = new();
+    public int PointsPossible { get; set; }
+    public int PointsAwarded { get; set; }
+    public List<string> Mistakes { get; set; } = new();
+  }
+
+  private void ToggleMultiple(int questionIndex, int optionIndex, bool isChecked)
+  {
+    if (!StudentMultipleAnswers.TryGetValue(questionIndex, out var set)) return;
+    if (isChecked) set.Add(optionIndex); else set.Remove(optionIndex);
+  }
+
+
+  private void UpdateSingleAnswer(int questionIndex, int selectedOption)
+  {
+    if (questionIndex < 0) return;
+    if (questionIndex >= SingleAnswers.Count)
+    {
+      for (int grow = SingleAnswers.Count; grow <= questionIndex; grow++) SingleAnswers.Add(-1);
+    }
+    SingleAnswers[questionIndex] = selectedOption;
+    Console.WriteLine($"UpdateSingleAnswer => Q{questionIndex} = {selectedOption}");
+  }
+
+  private void DebugAnswers()
+  {
+    Console.WriteLine($"Total questions: {McqQuestions.Count}");
+    Console.WriteLine($"SingleAnswers count: {SingleAnswers.Count}");
+    for (int i = 0; i < SingleAnswers.Count; i++)
+    {
+      Console.WriteLine($"Question {i}: Selected = {SingleAnswers[i]}");
+    }
+  }
+
+
+  // (Deprecated explicit handler replaced by inline lambda; kept stub if future logic needed)
+  private void OnSingleSelected(int idx, int value)
+  {
+    if (idx < 0) return;
+    while (SingleAnswers.Count <= idx) SingleAnswers.Add(-1);
+    SingleAnswers[idx] = value;
+  }
+
+  private class LegacyQuestion
+  {
+    public string Text { get; set; } = "";
+    public List<string>? Options { get; set; }
+    public int CorrectAnswer { get; set; }
+  }
+}

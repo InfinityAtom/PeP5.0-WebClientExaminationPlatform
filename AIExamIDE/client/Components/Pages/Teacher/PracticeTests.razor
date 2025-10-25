@@ -1,0 +1,173 @@
+@page "/teacher/practice-tests"
+@layout PortalLayout
+@using MudBlazor
+@using System.Text.Json
+@inject AIExamIDE.Services.ApiClient Api
+@inject AIExamIDE.Services.AuthState Auth
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+  <MudStack Spacing="3">
+    <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+      <MudText Typo="Typo.h4">Practice Tests</MudText>
+      <MudButton StartIcon="@Icons.Material.Filled.Add" Color="Color.Primary" Variant="Variant.Filled" OnClick="GoToCreate">
+        Create Practice Test
+      </MudButton>
+    </MudStack>
+
+    @if (Loading)
+    {
+      <MudProgressLinear Indeterminate="true" />
+    }
+    else if (PracticeTestsList.Any())
+    {
+      <MudGrid>
+        @foreach (var test in PracticeTestsList)
+        {
+          <MudItem xs="12" md="6" lg="4">
+            <MudCard Outlined="true" Style="height: 100%;">
+              <MudCardHeader>
+                <CardHeaderContent>
+                  <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.h6">@test.Title</MudText>
+                    <MudChip T="string" Color="GetTypeColor(test.Type)" Size="Size.Small">
+                      @test.Type.ToUpper()
+                    </MudChip>
+                  </MudStack>
+                </CardHeaderContent>
+              </MudCardHeader>
+              <MudCardContent>
+                <MudStack Spacing="2">
+                  @if (!string.IsNullOrEmpty(test.Prompt))
+                  {
+                    <MudText Typo="Typo.body2" Style="color: #666;">
+                      @(test.Prompt.Length > 100 ? test.Prompt.Substring(0, 100) + "..." : test.Prompt)
+                    </MudText>
+                  }
+                  
+                  @if (test.Type == "mcq" && !string.IsNullOrEmpty(test.ContentJson))
+                  {
+                    <MudText Typo="Typo.caption">
+                      @GetQuestionCount(test.ContentJson) questions
+                    </MudText>
+                  }
+                  
+                  <MudText Typo="Typo.caption" Style="color: #999;">
+                    Created: @test.CreatedAt
+                  </MudText>
+                </MudStack>
+              </MudCardContent>
+              <MudCardActions>
+                <MudStack Row Spacing="1" Justify="Justify.FlexEnd" Style="width: 100%;">
+                  <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Info" 
+                                 OnClick="@(() => EditPracticeTest(test))" Title="Edit" />
+                  <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" 
+                                 OnClick="@(() => DeletePracticeTest(test))" Title="Delete" />
+                </MudStack>
+              </MudCardActions>
+            </MudCard>
+          </MudItem>
+        }
+      </MudGrid>
+    }
+    else
+    {
+      <MudAlert Severity="Severity.Info">
+        No practice tests created yet. Click "Create Practice Test" to get started.
+      </MudAlert>
+    }
+  </MudStack>
+</MudContainer>
+
+<!-- Dialog removed: creation now on dedicated page -->
+
+@code {
+  private List<PracticeTest> PracticeTestsList = new();
+  private bool Loading = false;
+  
+  // Legacy dialog state removed; using dedicated create/edit pages.
+
+  public class McqQuestion { public string Text { get; set; } = ""; public List<string> Options { get; set; } = new() { "", "", "", "" }; public int CorrectAnswer { get; set; } = 0; }
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender) return;
+    await Auth.InitializeAsync();
+    if (!Auth.IsTeacher)
+    {
+      Nav.NavigateTo("/login");
+      return;
+    }
+    await LoadData();
+    StateHasChanged();
+  }
+
+  private async Task LoadData()
+  {
+    Loading = true;
+    try
+    {
+      PracticeTestsList = await Api.GetPracticeTestsAsync();
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error loading practice tests: {ex.Message}", Severity.Error);
+    }
+    finally
+    {
+      Loading = false;
+    }
+  }
+
+  private Color GetTypeColor(string type)
+  {
+    return type.ToLower() switch
+    {
+      "mcq" => Color.Info,
+      "ide" => Color.Success,
+      _ => Color.Default
+    };
+  }
+
+  private int GetQuestionCount(string contentJson)
+  {
+    try
+    {
+      var content = JsonSerializer.Deserialize<List<McqQuestion>>(contentJson);
+      return content?.Count ?? 0;
+    }
+    catch
+    {
+      return 0;
+    }
+  }
+
+  private void GoToCreate() => Nav.NavigateTo("/teacher/practice-tests/create");
+
+  private void EditPracticeTest(PracticeTest test) => Nav.NavigateTo($"/teacher/practice-tests/edit/{test.Id}");
+
+  private async Task DeletePracticeTest(PracticeTest test)
+  {
+    var result = await DialogService.ShowMessageBox(
+      "Delete Practice Test",
+      $"Are you sure you want to delete '{test.Title}'? This action cannot be undone.",
+      yesText: "Delete", cancelText: "Cancel");
+    
+    if (result == true)
+    {
+      try
+      {
+        await Api.DeletePracticeTestAsync(test.Id);
+        PracticeTestsList.RemoveAll(p => p.Id == test.Id);
+        Snackbar.Add("Practice test deleted successfully", Severity.Success);
+      }
+      catch (Exception ex)
+      {
+        Snackbar.Add($"Error deleting practice test: {ex.Message}", Severity.Error);
+      }
+    }
+  }
+
+  // Creation/edit logic moved to dedicated pages.
+}

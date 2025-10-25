@@ -1,0 +1,113 @@
+﻿@page "/login"
+@layout PortalLayout
+@rendermode InteractiveServer
+@using MudBlazor
+@inject AIExamIDE.Services.ApiClient Api
+@inject AIExamIDE.Services.AuthState Auth
+@inject NavigationManager Nav
+
+<MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="mt-6">
+    <MudPaper Class="pa-4" Elevation="2">
+        <MudStack Spacing="2">
+            <MudText Typo="Typo.h5" Align="Align.Center">Sign in</MudText>
+
+            @if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                <MudAlert Severity="Severity.Error">@ErrorMessage</MudAlert>
+            }
+
+            <MudForm @ref="_loginForm">
+                <MudTextField @bind-Value="Email" Label="Email" Variant="Variant.Outlined" Required="true" Disabled="IsBusy" />
+                <MudTextField @bind-Value="Password" Label="Password" Variant="Variant.Outlined" InputType="InputType.Password" Required="true" Disabled="IsBusy" Class="mt-2" />
+                <MudStack Row Spacing="1" Class="mt-3" Justify="Justify.FlexStart">
+                    <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="IsBusy" ButtonType="ButtonType.Button" OnClick="DoLogin">
+                        Login
+                    </MudButton>
+                </MudStack>
+            </MudForm>
+
+            <MudDivider Class="my-2" />
+            <MudText Typo="Typo.body2" Align="Align.Center">
+                Don't have an account?
+                <MudLink Href="/register">Create one here</MudLink>
+            </MudText>
+        </MudStack>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private MudForm? _loginForm;
+
+    private string Email = string.Empty;
+    private string Password = string.Empty;
+    private bool IsBusy;
+    private string? ErrorMessage;
+
+    private bool _redirected;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _redirected)
+            return;
+
+        await Auth.InitializeAsync(async () =>
+        {
+            try
+            {
+                return await Api.GetCurrentUserAsync();
+            }
+            catch
+            {
+                return null;
+            }
+        });
+        if (Auth.IsTeacher)
+        {
+            RedirectByRole("teacher");
+            return;
+        }
+        if (Auth.IsStudent)
+        {
+            RedirectByRole("student");
+            return;
+        }
+    }
+
+    private async Task DoLogin()
+    {
+        ErrorMessage = null;
+        if (_loginForm is null)
+            return;
+
+        await _loginForm.Validate();
+        if (!_loginForm.IsValid)
+            return;
+
+        IsBusy = true;
+        try
+        {
+            var auth = await Api.LoginAsync(Email, Password);
+            RedirectByRole(auth.User.Role);
+        }
+        catch (HttpRequestException ex) { ErrorMessage = ex.Message; } catch (Exception ex) { ErrorMessage = ex.Message; }
+        finally
+        {
+            IsBusy = false;
+            StateHasChanged();
+        }
+    }
+
+    private void RedirectByRole(string role)
+    {
+        _redirected = true;
+        if (role == "teacher")
+            Nav.NavigateTo("/teacher/dashboard");
+        else if (role == "student")
+            Nav.NavigateTo("/student/dashboard");
+        else
+            Nav.NavigateTo("/");
+    }
+}
+
+
+

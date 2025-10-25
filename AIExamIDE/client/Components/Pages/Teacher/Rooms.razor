@@ -1,0 +1,333 @@
+@page "/teacher/rooms"
+@layout PortalLayout
+@rendermode InteractiveServer
+@inject AIExamIDE.Services.ApiClient Api
+@inject AIExamIDE.Services.AuthState Auth
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+  <MudGrid>
+    <!-- Room Creation/Edit Panel -->
+    <MudItem xs="12" md="7">
+      <MudPaper Class="pa-4" Elevation="2">
+        <MudStack Spacing="3">
+          <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <MudText Typo="Typo.h5">
+              @(EditingRoom != null ? $"Edit Room: {EditingRoom.Name}" : "Create New Room")
+            </MudText>
+            @if (EditingRoom != null)
+            {
+              <MudButton StartIcon="@Icons.Material.Filled.Cancel" OnClick="CancelEdit" Color="Color.Secondary">
+                Cancel Edit
+              </MudButton>
+            }
+          </MudStack>
+          
+          <MudTextField @bind-Value="NewRoomName" Label="Room name" Variant="Variant.Outlined" Required="true" />
+          
+          <MudStack Row Spacing="2">
+            <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SaveRoom" StartIcon="@Icons.Material.Filled.Save">
+              @(EditingRoom != null ? "Update Room" : "Create Room")
+            </MudButton>
+            <MudButton Color="Color.Secondary" Variant="Variant.Outlined" OnClick="AddDesk" StartIcon="@Icons.Material.Filled.Add">
+              Add Desk
+            </MudButton>
+            <MudButton Color="Color.Info" Variant="Variant.Outlined" OnClick="SyncPositions" StartIcon="@Icons.Material.Filled.Sync">
+              Sync Positions
+            </MudButton>
+            <MudButton Color="Color.Warning" Variant="Variant.Text" OnClick="ClearAllDesks" StartIcon="@Icons.Material.Filled.Clear">
+              Clear All
+            </MudButton>
+          </MudStack>
+
+          <!-- Visual Seat Map Editor -->
+          <MudPaper Class="pa-2" Style="background: #f5f5f5;">
+            <MudText Typo="Typo.subtitle1" Class="mb-2">Seat Map Editor (Drag desks to reposition)</MudText>
+            <div id="seatmap-editor" style="position:relative;width:100%;min-height:400px;border:2px dashed #ccc;background:white;overflow:auto;">
+              @foreach (var d in CurrentRoom.Seatmap.Desks)
+              {
+                var style = $"position:absolute;left:{d.X}px;top:{d.Y}px;border:2px solid #2196F3;border-radius:8px;padding:8px 12px;background:#E3F2FD;cursor:move;user-select:none;min-width:80px;text-align:center;box-shadow:0 2px 4px rgba(0,0,0,0.1);";
+                <div class="desk" data-id="@d.Id" style="@style" title="@($"Desk: {d.Name}, Hostname: {d.Hostname}")">
+                  <div style="font-weight:bold;font-size:12px;">@d.Name</div>
+                  @if (!string.IsNullOrEmpty(d.Hostname))
+                  {
+                    <div style="font-size:10px;color:#666;">@d.Hostname</div>
+                  }
+                </div>
+              }
+            </div>
+          </MudPaper>
+
+          <!-- Desk Details Table -->
+          <MudDataGrid T="Desk" Items="CurrentRoom.Seatmap.Desks" Dense="true" Hover="true" EditMode="DataGridEditMode.Cell"
+                       StartedEditingItem="@((item) => { })" CanceledEditingItem="@((item) => { })" CommittedItemChanges="@((item) => StateHasChanged())">
+            <Columns>
+              <PropertyColumn Property="x => x.Name" Title="Name" />
+              <PropertyColumn Property="x => x.Hostname" Title="Hostname" />
+              <PropertyColumn Property="x => x.X" Title="X Position" />
+              <PropertyColumn Property="x => x.Y" Title="Y Position" />
+              <TemplateColumn Title="Actions" Sortable="false">
+                <CellTemplate>
+                  <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" 
+                                 OnClick="@(() => RemoveDesk(context.Item))" />
+                </CellTemplate>
+              </TemplateColumn>
+            </Columns>
+          </MudDataGrid>
+        </MudStack>
+      </MudPaper>
+    </MudItem>
+
+    <!-- Room List Panel -->
+    <MudItem xs="12" md="5">
+      <MudPaper Class="pa-4" Elevation="2">
+        <MudStack Spacing="3">
+          <MudText Typo="Typo.h5">Existing Rooms (@AllRooms.Count)</MudText>
+          
+          @if (Loading)
+          {
+            <MudProgressCircular Indeterminate="true" />
+          }
+          else if (AllRooms.Any())
+          {
+            <MudDataGrid T="ExamRoom" Items="AllRooms" Dense="true" Hover="true">
+              <Columns>
+                <PropertyColumn Property="x => x.Name" Title="Room Name" />
+                <PropertyColumn Property="x => x.Seatmap.Desks.Count" Title="Desks" />
+                <TemplateColumn Title="Actions" Sortable="false">
+                  <CellTemplate>
+                    <MudStack Row Spacing="1">
+                      <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary" 
+                                     OnClick="@(() => EditRoom(context.Item))" Title="Edit" />
+                      <MudIconButton Icon="@Icons.Material.Filled.Print" Size="Size.Small" Color="Color.Info" 
+                                     OnClick="@(() => PrintRoom(context.Item))" Title="Print Seat Map" />
+                      <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" 
+                                     OnClick="@(() => DeleteRoom(context.Item))" Title="Delete" />
+                    </MudStack>
+                  </CellTemplate>
+                </TemplateColumn>
+              </Columns>
+            </MudDataGrid>
+          }
+          else
+          {
+            <MudAlert Severity="Severity.Info">
+              No rooms created yet. Create your first exam room using the form on the left.
+            </MudAlert>
+          }
+        </MudStack>
+      </MudPaper>
+    </MudItem>
+  </MudGrid>
+</MudContainer>
+
+@code {
+  private string NewRoomName = string.Empty;
+  private ExamRoom NewRoom = new() { Seatmap = new SeatMap() };
+  private List<ExamRoom> AllRooms = new();
+  private ExamRoom? EditingRoom = null;
+  private bool Loading = false;
+
+  private ExamRoom CurrentRoom => EditingRoom ?? NewRoom;
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender) return;
+
+    await Auth.InitializeAsync();
+    if (!Auth.IsTeacher)
+    {
+      Nav.NavigateTo("/login");
+      return;
+    }
+
+    await LoadRooms();
+    await RefreshSeatmapAsync();
+  }
+
+  private async Task LoadRooms()
+  {
+    Loading = true;
+    try
+    {
+      AllRooms = await Api.GetRoomsAsync();
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error loading rooms: {ex.Message}", Severity.Error);
+    }
+    finally
+    {
+      Loading = false;
+      StateHasChanged();
+    }
+  }
+
+  private void AddDesk()
+  {
+    var deskCount = CurrentRoom.Seatmap.Desks.Count;
+    CurrentRoom.Seatmap.Desks.Add(new Desk 
+    { 
+      Name = $"Desk {deskCount + 1}", 
+      Hostname = $"PC-{deskCount + 1:D2}",
+      X = 50 + (deskCount % 8) * 100, 
+      Y = 50 + (deskCount / 8) * 80 
+    });
+    _ = RefreshSeatmapAsync();
+    StateHasChanged();
+  }
+
+  private void RemoveDesk(Desk desk)
+  {
+    CurrentRoom.Seatmap.Desks.Remove(desk);
+    _ = RefreshSeatmapAsync();
+    StateHasChanged();
+  }
+
+  private void ClearAllDesks()
+  {
+    CurrentRoom.Seatmap.Desks.Clear();
+    _ = RefreshSeatmapAsync();
+    StateHasChanged();
+  }
+
+  private async Task SaveRoom()
+  {
+    if (string.IsNullOrWhiteSpace(NewRoomName))
+    {
+      Snackbar.Add("Please enter a room name", Severity.Warning);
+      return;
+    }
+
+    try
+    {
+      await SyncPositions();
+
+      if (EditingRoom != null)
+      {
+        // Update existing room
+        EditingRoom.Name = NewRoomName;
+        var updated = await Api.UpdateRoomAsync(EditingRoom.Id, EditingRoom);
+        var index = AllRooms.FindIndex(r => r.Id == EditingRoom.Id);
+        if (index >= 0) AllRooms[index] = updated;
+        Snackbar.Add("Room updated successfully!", Severity.Success);
+        CancelEdit();
+      }
+      else
+      {
+        // Create new room
+        NewRoom.Name = NewRoomName;
+        var created = await Api.CreateRoomAsync(NewRoom);
+        AllRooms.Insert(0, created);
+        NewRoom = new ExamRoom { Seatmap = new SeatMap() };
+        Snackbar.Add("Room created successfully!", Severity.Success);
+      }
+
+      NewRoomName = string.Empty;
+      await RefreshSeatmapAsync();
+      StateHasChanged();
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error saving room: {ex.Message}", Severity.Error);
+    }
+  }
+
+  private async Task EditRoom(ExamRoom room)
+  {
+    try
+    {
+      EditingRoom = await Api.GetRoomAsync(room.Id);
+      NewRoomName = EditingRoom.Name;
+      await RefreshSeatmapAsync();
+      StateHasChanged();
+      Snackbar.Add($"Editing room: {room.Name}", Severity.Info);
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error loading room: {ex.Message}", Severity.Error);
+    }
+  }
+
+  private void CancelEdit()
+  {
+    EditingRoom = null;
+    NewRoomName = string.Empty;
+    _ = RefreshSeatmapAsync();
+    StateHasChanged();
+  }
+
+  private async Task DeleteRoom(ExamRoom room)
+  {
+    var result = await DialogService.ShowMessageBox(
+      "Delete Room",
+      $"Are you sure you want to delete '{room.Name}'? This action cannot be undone.",
+      yesText: "Delete",
+      cancelText: "Cancel"
+    );
+
+    if (result == true)
+    {
+      try
+      {
+        await Api.DeleteRoomAsync(room.Id);
+        AllRooms.Remove(room);
+        Snackbar.Add("Room deleted successfully!", Severity.Success);
+        StateHasChanged();
+      }
+      catch (Exception ex)
+      {
+        Snackbar.Add($"Error deleting room: {ex.Message}", Severity.Error);
+      }
+    }
+  }
+
+  private void PrintRoom(ExamRoom room)
+  {
+    var url = $"http://localhost:3000/teacher/rooms/{room.Id}/print";
+    _ = JS.InvokeVoidAsync("open", url, "_blank");
+  }
+
+  private async Task SyncPositions()
+  {
+    try 
+    {
+      var arr = await JS.InvokeAsync<DeskPos[]>("seatmap.getPositions", "seatmap-editor");
+      if (arr != null)
+      {
+        var lookup = arr.ToDictionary(x => x.id);
+        foreach (var d in CurrentRoom.Seatmap.Desks)
+        {
+          if (lookup.TryGetValue(d.Id, out var p)) 
+          { 
+            d.X = p.x; 
+            d.Y = p.y; 
+          }
+        }
+      }
+    } 
+    catch (Exception ex)
+    {
+      // Ignore JS errors - seatmap might not be initialized yet
+      Console.WriteLine($"SyncPositions error: {ex.Message}");
+    }
+  }
+
+  private async Task RefreshSeatmapAsync()
+  {
+    await Task.Delay(100);
+    try 
+    { 
+      await JS.InvokeVoidAsync("seatmap.init", "seatmap-editor"); 
+    } 
+    catch (Exception ex)
+    {
+      // Ignore JS errors - seatmap might not be initialized yet
+      Console.WriteLine($"RefreshSeatmap error: {ex.Message}");
+    }
+  }
+
+  private record DeskPos(string id, int x, int y);
+}

@@ -1,0 +1,40 @@
+﻿@using AIExamIDE.Services
+@using MudBlazor
+@inject AuthState Auth
+@inject NavigationManager Navigation
+
+@if (IsAuthorized)
+{
+    @ChildContent
+}
+else if (ShowLoading)
+{
+    <MudContainer Class="d-flex justify-center align-center" Style="height: 100vh;">
+        <MudProgressCircular Size="Size.Large" Indeterminate="true" />
+    </MudContainer>
+}
+
+@code {
+    [Parameter] public RenderFragment ChildContent { get; set; } = default!;
+    [Parameter] public string? RequiredRole { get; set; }
+    [Parameter] public bool RequireAuthentication { get; set; } = true;
+    [Parameter] public string RedirectTo { get; set; } = "/login";
+
+    private bool IsAuthorized => !RequireAuthentication || 
+                                (Auth.IsAuthenticated && (RequiredRole == null || Auth.User?.Role == RequiredRole));
+    
+    private bool ShowLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.InitializeAsync();
+        
+        if (!IsAuthorized)
+        {
+            Navigation.NavigateTo(RedirectTo);
+            return;
+        }
+        
+        ShowLoading = false;
+    }
+}

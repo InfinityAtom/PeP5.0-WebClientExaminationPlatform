@@ -1,0 +1,515 @@
+@page "/student/book"
+@layout PortalLayout
+@rendermode InteractiveServer
+@inject AIExamIDE.Services.ApiClient Api
+@inject AIExamIDE.Services.AuthState Auth
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@using System.Linq
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+  <MudGrid>
+    <!-- Available Sessions Panel -->
+    <MudItem xs="12" md="4">
+      <MudPaper Class="pa-4" Elevation="2">
+        <MudStack Spacing="3">
+          <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <MudText Typo="Typo.h5">Available Exam Sessions</MudText>
+            <MudIconButton Icon="@Icons.Material.Filled.Refresh" OnClick="LoadSessions" Size="Size.Small" />
+          </MudStack>
+
+          @if (Loading)
+          {
+            <MudProgressCircular Indeterminate="true" />
+          }
+          else if (Sessions.Any())
+          {
+            <MudStack Spacing="2">
+              @foreach (var session in Sessions)
+              {
+                var isSelected = SelectedSession?.Id == session.Id;
+                var hasSeats = session.Room?.Seatmap.Desks.Any() == true;
+                var bookedCount = session.BookedSeats?.Count ?? 0;
+                var totalSeats = session.Room?.Seatmap.Desks.Count ?? 0;
+                var availableSeats = totalSeats - bookedCount;
+                var myBooking = MyBookings.FirstOrDefault(b => b.SessionId == session.Id);
+
+                <MudCard Outlined="true" Style="@(isSelected ? "border: 2px solid #1976d2;" : "")" 
+                         Class="@(isSelected ? "selected-session" : "")" >
+                  <MudCardContent Class="pb-2">
+                    <MudStack Spacing="1">
+                      <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start">
+                        <MudText Typo="Typo.h6">
+                          @(string.IsNullOrEmpty(session.Title) ? "Exam Session" : session.Title)
+                        </MudText>
+                        <MudChip T="string" Size="Size.Small" Color="GetSessionStatusColor(availableSeats, totalSeats)">
+                          @availableSeats/@totalSeats
+                        </MudChip>
+                        @if (myBooking != null)
+                        {
+                          <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Filled" Class="ml-1">Booked</MudChip>
+                        }
+                      </MudStack>
+                      
+                      <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.DateRange" Size="Size.Small" />
+                        <MudText Typo="Typo.body2">@session.Date</MudText>
+                      </MudStack>
+
+                      @if (!string.IsNullOrEmpty(session.StartTime) || !string.IsNullOrEmpty(session.EndTime))
+                      {
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                          <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" />
+                          <MudText Typo="Typo.body2">
+                            @session.StartTime - @session.EndTime
+                          </MudText>
+                        </MudStack>
+                      }
+
+                      <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.Room" Size="Size.Small" />
+                        <MudText Typo="Typo.body2">@session.Room?.Name</MudText>
+                      </MudStack>
+
+                      <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.Code" Size="Size.Small" />
+                        <MudText Typo="Typo.body2">@session.ExamType.ToUpper()</MudText>
+                        @if (session.AiGenerated)
+                        {
+                          <MudIcon Icon="@Icons.Material.Filled.Psychology" Color="Color.Success" Size="Size.Small" Title="AI Generated" />
+                        }
+                      </MudStack>
+                    </MudStack>
+                  </MudCardContent>
+                  <MudCardActions>
+                    <MudButton Color="Color.Primary" Variant="@(isSelected ? Variant.Filled : Variant.Outlined)" 
+                               OnClick="@(() => SelectSession(session))" 
+                               Disabled="@(!hasSeats || availableSeats == 0)">
+                      @(availableSeats == 0 ? "Full" : isSelected ? "Selected" : "Select")
+                    </MudButton>
+                  </MudCardActions>
+                </MudCard>
+              }
+            </MudStack>
+          }
+          else
+          {
+            <MudAlert Severity="Severity.Info">
+              No exam sessions are currently available for booking.
+            </MudAlert>
+          }
+        </MudStack>
+      </MudPaper>
+    </MudItem>
+
+    <!-- Seat Map Panel -->
+    <MudItem xs="12" md="8">
+      @if (SelectedSession != null)
+      {
+        <MudPaper Class="pa-4" Elevation="2">
+          <MudStack Spacing="3">
+            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+              <MudText Typo="Typo.h5">
+                Seat Selection - @SelectedSession.Room?.Name
+              </MudText>
+              <MudStack Row Spacing="2">
+                <MudChip T="string" Size="Size.Small" Color="Color.Success" Icon="@Icons.Material.Filled.CheckCircle">
+                  Available
+                </MudChip>
+                <MudChip T="string" Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Block">
+                  Booked
+                </MudChip>
+              </MudStack>
+            </MudStack>
+
+            <!-- Session Details -->
+            <MudGrid>
+              <MudItem xs="12" sm="6" md="3">
+                <MudStack AlignItems="AlignItems.Center">
+                  <MudIcon Icon="@Icons.Material.Filled.DateRange" />
+                  <MudText Typo="Typo.caption">Date</MudText>
+                  <MudText Typo="Typo.body1">@SelectedSession.Date</MudText>
+                </MudStack>
+              </MudItem>
+              <MudItem xs="12" sm="6" md="3">
+                <MudStack AlignItems="AlignItems.Center">
+                  <MudIcon Icon="@Icons.Material.Filled.Schedule" />
+                  <MudText Typo="Typo.caption">Time</MudText>
+                  <MudText Typo="Typo.body1">@SelectedSession.StartTime - @SelectedSession.EndTime</MudText>
+                </MudStack>
+              </MudItem>
+              <MudItem xs="12" sm="6" md="3">
+                <MudStack AlignItems="AlignItems.Center">
+                  <MudIcon Icon="@Icons.Material.Filled.EventSeat" />
+                  <MudText Typo="Typo.caption">Available Seats</MudText>
+                  <MudText Typo="Typo.body1">@GetAvailableSeats() / @GetTotalSeats()</MudText>
+                </MudStack>
+              </MudItem>
+              <MudItem xs="12" sm="6" md="3">
+                <MudStack AlignItems="AlignItems.Center">
+                  <MudIcon Icon="@Icons.Material.Filled.Code" />
+                  <MudText Typo="Typo.caption">Exam Type</MudText>
+                  <MudText Typo="Typo.body1">@SelectedSession.ExamType.ToUpper()</MudText>
+                </MudStack>
+              </MudItem>
+            </MudGrid>
+
+            <!-- Seat Map -->
+            <MudPaper Class="pa-3" Style="background: #f8f9fa; min-height: 500px;">
+              <div style="position:relative; width:100%; min-height:450px; border:2px dashed #dee2e6; background:white; overflow:auto;">
+                @if (SelectedSession.Room?.Seatmap.Desks.Any() == true)
+                {
+                  @foreach (var desk in SelectedSession.Room.Seatmap.Desks)
+                  {
+                    var isBooked = BookedSeats.Contains(desk.Id);
+                    var isSelected = SelectedSeatId == desk.Id;
+                    var selectionLocked = MySessionBooking != null;
+                    var seatStyle = $"position:absolute;left:{desk.X}px;top:{desk.Y}px;min-width:80px;padding:8px 12px;border-radius:8px;text-align:center;cursor:{(isBooked || selectionLocked ? "not-allowed" : "pointer")};user-select:none;transition:all 0.2s;";
+                    string backgroundColor;
+                    string borderColor;
+                    string textColor;
+
+                    if (isBooked)
+                    {
+                      backgroundColor = "#ffcdd2";
+                      borderColor = "#e53935";
+                      textColor = "#b71c1c";
+                    }
+                    else if (isSelected)
+                    {
+                      backgroundColor = "#c8e6c9";
+                      borderColor = "#2e7d32";
+                      textColor = "#1b5e20";
+                    }
+                    else
+                    {
+                      backgroundColor = "#eeeeee";
+                      borderColor = "#9e9e9e";
+                      textColor = "#424242";
+                    }
+
+                    seatStyle += $"background:{backgroundColor};border:2px solid {borderColor};color:{textColor};";
+
+                    <div style="@seatStyle" @onclick="@(() => { if(!selectionLocked) HandleSeatClick(desk.Id, isBooked); })"
+                         title="@($"Desk: {desk.Name}, Hostname: {desk.Hostname}, Status: {(isBooked ? "Booked" : (isSelected ? "Selected" : "Available"))}")">
+                      <div style="font-weight:bold;font-size:12px;">@desk.Name</div>
+                      @if (!string.IsNullOrEmpty(desk.Hostname))
+                      {
+                        <div style="font-size:10px;opacity:0.8;">@desk.Hostname</div>
+                      }
+                      <div style="font-size:10px;margin-top:4px;">
+                        @if (isBooked)
+                        {
+                          <MudIcon Icon="@Icons.Material.Filled.Block" Size="Size.Small" />
+                        }
+                        else if (isSelected)
+                        {
+                          <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" />
+                        }
+                        else
+                        {
+                          <MudIcon Icon="@Icons.Material.Filled.EventSeat" Color="Color.Default" Size="Size.Small" />
+                        }
+                      </div>
+                    </div>
+                  }
+                }
+                else
+                {
+                  <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="height: 400px;">
+                    <MudIcon Icon="@Icons.Material.Filled.EventBusy" Size="Size.Large" Style="color: #999;" />
+                    <MudText Typo="Typo.h6" Style="color: #666;">No seats configured for this room</MudText>
+                  </MudStack>
+                }
+              </div>
+            </MudPaper>
+            @if (MySessionBooking == null && !IsEditing)
+            {
+              <MudStack Row Spacing="2" Class="mt-4" AlignItems="AlignItems.Center">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!CanBook())" OnClick="BookSelectedSeat">
+                  Book Selected Seat
+                </MudButton>
+                @if (!string.IsNullOrEmpty(SelectedSeatId))
+                {
+                  <MudText Typo="Typo.caption">Selected Seat: @SelectedSeatId</MudText>
+                }
+              </MudStack>
+            }
+            else if (MySessionBooking != null && !IsEditing)
+            {
+              <MudPaper Class="pa-5 mt-4" Elevation="1" Style="background:#e3f2fd;">
+                <MudStack Spacing="2">
+                  <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.h6">Booking Details</MudText>
+                    <MudStack Row Spacing="1">
+                      <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="BeginEdit" Disabled="@EditDisabled">Edit Seat</MudButton>
+                      <MudButton Variant="Variant.Outlined" Color="Color.Error" OnClick="ConfirmDelete">Delete</MudButton>
+                    </MudStack>
+                  </MudStack>
+                  <MudDivider />
+                  <MudStack Spacing="1">
+                    <MudText Typo="Typo.body1"><b>Seat:</b> @MySessionBooking.SeatId</MudText>
+                    <MudText Typo="Typo.body1"><b>Status:</b> @MySessionBooking.Status</MudText>
+                    <MudText Typo="Typo.body1"><b>Date:</b> @SelectedSession.Date @SelectedSession.StartTime - @SelectedSession.EndTime</MudText>
+                    <MudText Typo="Typo.body1"><b>Room:</b> @SelectedSession.Room?.Name</MudText>
+                    <MudText Typo="Typo.body1"><b>Exam Type:</b> @SelectedSession.ExamType.ToUpper()</MudText>
+                  </MudStack>
+                </MudStack>
+              </MudPaper>
+            }
+            else if (IsEditing && MySessionBooking != null)
+            {
+              <MudPaper Class="pa-5 mt-4" Elevation="1" Style="background:#fffde7;">
+                <MudStack Spacing="3">
+                  <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.h6">Edit Booking Seat</MudText>
+                    <MudStack Row Spacing="1">
+                      <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!CanSaveEdit())" OnClick="SaveEdit">Save</MudButton>
+                      <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="CancelEdit">Cancel</MudButton>
+                    </MudStack>
+                  </MudStack>
+                  <MudDivider />
+                  <MudText Typo="Typo.caption">Select a new available seat below. Current seat: <b>@MySessionBooking.SeatId</b></MudText>
+                </MudStack>
+              </MudPaper>
+            }
+          </MudStack>
+        </MudPaper>
+      }
+      else
+      {
+        <MudPaper Class="pa-8" Elevation="2">
+          <MudStack AlignItems="AlignItems.Center" Spacing="3">
+            <MudIcon Icon="@Icons.Material.Filled.EventSeat" Size="Size.Large" Style="color: #ccc;" />
+            <MudText Typo="Typo.h5" Style="color: #999;">Select an Exam Session</MudText>
+            <MudText Typo="Typo.body1" Align="Align.Center" Style="color: #666;">
+              Choose an available exam session from the list on the left to view the seat map and make your booking.
+            </MudText>
+          </MudStack>
+        </MudPaper>
+      }
+    </MudItem>
+  </MudGrid>
+</MudContainer>
+
+@code {
+  private List<ExamSession> Sessions = new();
+  private ExamSession? SelectedSession;
+  private HashSet<string> BookedSeats = new();
+  private string? SelectedSeatId;
+  private Booking? MySessionBooking;
+  private List<Booking> MyBookings = new();
+  private bool IsEditing = false;
+  private string? EditOriginalSeatId;
+  private bool Loading = false;
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender) return;
+
+    await Auth.InitializeAsync();
+    if (!Auth.IsStudent)
+    {
+      Nav.NavigateTo("/login");
+      return;
+    }
+
+    await LoadSessions();
+  }
+
+  private async Task LoadSessions()
+  {
+    try
+    {
+      Loading = true;
+      StateHasChanged();
+
+  Sessions = await Api.GetAvailableSessionsAsync();
+  MyBookings = await Api.GetMyBookingsAsync();
+  // Auto-select session if user already has a booking and nothing selected
+  if (SelectedSession is null && MyBookings.Count > 0)
+  {
+    var firstBookedSession = Sessions.FirstOrDefault(s => MyBookings.Any(b => b.SessionId == s.Id));
+    if (firstBookedSession != null)
+    {
+      SelectSession(firstBookedSession);
+    }
+  }
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error loading sessions: {ex.Message}", Severity.Error);
+      Sessions = new();
+    }
+    finally
+    {
+      Loading = false;
+      StateHasChanged();
+    }
+  }
+
+  private void SelectSession(ExamSession session)
+  {
+    SelectedSession = session;
+    BookedSeats = new HashSet<string>(session.BookedSeats ?? new List<string>());
+    MySessionBooking = MyBookings.FirstOrDefault(b => b.SessionId == session.Id);
+    SelectedSeatId = MySessionBooking?.SeatId;
+    StateHasChanged();
+  }
+
+  private void HandleSeatClick(string seatId, bool isBooked)
+  {
+    if (isBooked || SelectedSession == null)
+      return;
+
+    if (SelectedSeatId == seatId)
+      SelectedSeatId = null;
+    else
+      SelectedSeatId = seatId;
+    StateHasChanged();
+  }
+
+  private bool CanBook() => SelectedSession != null && SelectedSeatId != null && !BookedSeats.Contains(SelectedSeatId);
+
+  private void BeginEdit()
+  {
+    if (MySessionBooking is null) return;
+    IsEditing = true;
+    EditOriginalSeatId = MySessionBooking.SeatId;
+    SelectedSeatId = MySessionBooking.SeatId; // highlight current seat
+    StateHasChanged();
+  }
+
+  private bool CanSaveEdit()
+  {
+    if (!IsEditing || MySessionBooking == null || SelectedSession == null || SelectedSeatId == null) return false;
+    if (SelectedSeatId == MySessionBooking.SeatId) return false; // unchanged
+    return !BookedSeats.Contains(SelectedSeatId);
+  }
+
+  private void CancelEdit()
+  {
+    IsEditing = false;
+    SelectedSeatId = MySessionBooking?.SeatId;
+    StateHasChanged();
+  }
+
+  private async Task SaveEdit()
+  {
+    if (!CanSaveEdit() || MySessionBooking == null || SelectedSeatId == null) return;
+    try
+    {
+      var updated = await Api.UpdateMyBookingSeatAsync(MySessionBooking.Id, SelectedSeatId);
+      if (updated is null)
+      {
+        Snackbar.Add("Seat already booked or update failed.", Severity.Error);
+        return;
+      }
+      Snackbar.Add("Seat updated successfully", Severity.Success);
+      // Refresh bookings and sessions
+      MyBookings = await Api.GetMyBookingsAsync();
+      await LoadSessions();
+      MySessionBooking = MyBookings.FirstOrDefault(b => b.Id == updated.Id);
+      SelectedSeatId = MySessionBooking?.SeatId;
+      IsEditing = false;
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error updating seat: {ex.Message}", Severity.Error);
+    }
+    StateHasChanged();
+  }
+
+  private async Task ConfirmDelete()
+  {
+    if (MySessionBooking is null) return;
+    var result = await DialogService.ShowMessageBox("Delete Booking", "Are you sure you want to delete this booking?", yesText: "Delete", cancelText: "Cancel");
+    if (result == true)
+    {
+      await DeleteBooking();
+    }
+  }
+
+  private async Task DeleteBooking()
+  {
+    if (MySessionBooking is null) return;
+    try
+    {
+      var ok = await Api.DeleteMyBookingAsync(MySessionBooking.Id);
+      if (!ok)
+      {
+        Snackbar.Add("Booking not found or already deleted.", Severity.Warning);
+      }
+      else
+      {
+        Snackbar.Add("Booking deleted.", Severity.Success);
+      }
+      // Reset state
+      MyBookings = await Api.GetMyBookingsAsync();
+      await LoadSessions();
+      MySessionBooking = null;
+      SelectedSeatId = null;
+      IsEditing = false;
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error deleting booking: {ex.Message}", Severity.Error);
+    }
+    StateHasChanged();
+  }
+
+  private bool EditDisabled => MySessionBooking == null || IsEditing;
+
+  private async Task BookSelectedSeat()
+  {
+    if (!CanBook() || SelectedSession == null || SelectedSeatId == null) return;
+
+    try
+    {
+      await Api.BookSeatAsync(SelectedSession.Id, SelectedSeatId);
+      Snackbar.Add($"Successfully booked seat {SelectedSeatId}!", Severity.Success);
+
+      // Refresh sessions and reselect
+      await LoadSessions();
+      var updatedSession = Sessions.FirstOrDefault(s => s.Id == SelectedSession.Id);
+      if (updatedSession != null)
+      {
+        SelectSession(updatedSession);
+      }
+      MyBookings = await Api.GetMyBookingsAsync();
+      MySessionBooking = MyBookings.FirstOrDefault(b => b.SessionId == SelectedSession!.Id);
+      if (MySessionBooking != null)
+      {
+        SelectedSeatId = MySessionBooking.SeatId;
+        BookedSeats.Add(MySessionBooking.SeatId);
+      }
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error booking seat: {ex.Message}", Severity.Error);
+    }
+    StateHasChanged();
+  }
+
+  // Legacy direct booking method removed in favor of explicit selection + button.
+
+  private Color GetSessionStatusColor(int available, int total)
+  {
+    if (available == 0) return Color.Error;
+    if (available <= total * 0.2) return Color.Warning;
+    return Color.Success;
+  }
+
+  private int GetAvailableSeats()
+  {
+    if (SelectedSession?.Room?.Seatmap.Desks == null) return 0;
+    var total = SelectedSession.Room.Seatmap.Desks.Count;
+    var booked = BookedSeats.Count;
+    return total - booked;
+  }
+
+  private int GetTotalSeats()
+  {
+    return SelectedSession?.Room?.Seatmap.Desks.Count ?? 0;
+  }
+}

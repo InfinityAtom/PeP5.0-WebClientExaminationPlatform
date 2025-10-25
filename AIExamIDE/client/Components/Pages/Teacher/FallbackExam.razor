@@ -1,0 +1,1348 @@
+@page "/teacher/fallback"
+@layout PortalLayout
+@rendermode InteractiveServer
+@inject AIExamIDE.Services.ApiClient Api
+@inject AuthState Auth
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject CsvService CsvService
+@inject IDialogService DialogService
+@inject IJSRuntime JS
+@using MudBlazor
+@using System.Text
+@using AIExamIDE.Services
+@using Microsoft.AspNetCore.Components.Forms
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+  <MudStack Spacing="4">
+    <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+      <MudText Typo="Typo.h4">Customize Fallback Exam</MudText>
+      <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" Color="Color.Secondary" OnClick="@(() => Nav.NavigateTo("/teacher/dashboard"))">
+        Back to Dashboard
+      </MudButton>
+    </MudStack>
+    
+    <MudAlert Severity="Severity.Info" Class="mb-4">
+      <MudText>
+        This exam is used as a fallback when AI exam generation is unavailable. 
+        Customize the exam details below and the system will generate the proper JSON structure automatically.
+      </MudText>
+    </MudAlert>
+    
+    @if (Loading)
+    {
+      <MudProgressLinear Indeterminate="true" />
+    }
+    
+    <MudGrid>
+      <!-- Basic Information -->
+      <MudItem xs="12">
+        <MudCard>
+          <MudCardHeader>
+            <CardHeaderContent>
+              <MudText Typo="Typo.h5">Exam Information</MudText>
+            </CardHeaderContent>
+          </MudCardHeader>
+          <MudCardContent>
+            <MudStack Spacing="3">
+              <MudTextField @bind-Value="ExamData.Domain" Label="Exam Domain" 
+                            Placeholder="e.g., E-commerce Platform Management"
+                            Variant="Variant.Outlined" FullWidth="true" />
+              
+              <MudTextField @bind-Value="ExamData.Overview" Label="Overview Description" 
+                            Lines="4" Variant="Variant.Outlined" FullWidth="true"
+                            Placeholder="Provide a comprehensive 3-4 sentence overview of the business context..." />
+            </MudStack>
+          </MudCardContent>
+        </MudCard>
+      </MudItem>
+
+      <!-- CSV Files Section -->
+      <MudItem xs="12">
+        <MudCard>
+          <MudCardHeader>
+            <CardHeaderContent>
+              <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.h5">CSV Data Files</MudText>
+                <MudStack Row Spacing="2" AlignItems="AlignItems.Center">
+                  <MudButton StartIcon="@Icons.Material.Filled.Add" Color="Color.Primary" 
+                             OnClick="AddCsvFile" Size="Size.Small" Variant="Variant.Outlined">
+                    Add CSV File
+                  </MudButton>
+                  <MudTooltip Text="Import one or more CSV files (.csv). Each valid file becomes a new tab.">
+                    <div style="position: relative; display: inline-block;">
+                      <MudButton StartIcon="@Icons.Material.Filled.UploadFile" Color="Color.Secondary" Size="Size.Small" Variant="Variant.Outlined">
+                        Upload CSV(s)
+                      </MudButton>
+                      <InputFile multiple OnChange="ImportCsvFilesAsync" accept=".csv" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;" />
+                    </div>
+                  </MudTooltip>
+                </MudStack>
+              </MudStack>
+            </CardHeaderContent>
+          </MudCardHeader>
+          <MudCardContent>
+            @if (!ExamData.CsvFiles.Any())
+            {
+              <MudAlert Severity="Severity.Warning">
+                No CSV files configured. Add at least one CSV file for the exam.
+              </MudAlert>
+            }
+            else
+            {
+              <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined" Class="mb-3">
+                <MudText>
+                  Note: Importing or pasting CSVs larger than <b>@MaxColumns</b> columns or <b>@MaxRows</b> rows will be <b>automatically truncated</b>.
+                  Data beyond these limits is discarded (keeps the first @MaxColumns columns and first @MaxRows rows).
+                </MudText>
+              </MudAlert>
+              @if (ExamData.CsvFiles.Any(f => f.FromUpload))
+              {
+                <MudStack Row Spacing="1" Class="mb-3" AlignItems="AlignItems.Center">
+                  <MudText Typo="Typo.subtitle2" Class="mr-2">Uploaded Files:</MudText>
+                  @foreach (var (f, idx) in ExamData.CsvFiles.Select((f,i)=>(f,i)).Where(t => t.f.FromUpload))
+                  {
+                    <MudChip T="string" Color="Color.Primary" Variant="Variant.Filled" Closeable="true" OnClose="@(() => RemoveCsvFile(idx))" Style="max-width:200px;">
+                      <MudTooltip Text="Click X to remove this uploaded file">
+                        <span>@f.Filename</span>
+                      </MudTooltip>
+                    </MudChip>
+                  }
+                </MudStack>
+              }
+              <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
+                @foreach (var (csvFile, index) in ExamData.CsvFiles.Select((f, i) => (f, i)))
+                {
+                  <MudTabPanel Text="@csvFile.Filename" Icon="@Icons.Material.Filled.TableChart">
+                    <MudStack Spacing="3">
+                      <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                        <MudTextField @bind-Value="csvFile.Filename" Label="CSV Filename" 
+                                      Placeholder="e.g., customers.csv" Style="width: 250px;" />
+                        <MudStack Row Spacing="2">
+                          <MudButton StartIcon="@Icons.Material.Filled.Add" Color="Color.Success" 
+                                     Size="Size.Small" Variant="Variant.Outlined"
+                                     Disabled="@(@ExamData.CsvFiles[index].Columns.Count >= MaxColumns)"
+                                     OnClick="@(() => AddColumn(index))">
+                            Add Column
+                          </MudButton>
+                          <MudButton StartIcon="@Icons.Material.Filled.AddBox" Color="Color.Info" 
+                                     Size="Size.Small" Variant="Variant.Outlined"
+                                     Disabled="@(@ExamData.CsvFiles[index].Rows.Count >= MaxRows)"
+                                     OnClick="@(() => AddRow(index))">
+                            Add Row
+                          </MudButton>
+                          <MudButton StartIcon="@Icons.Material.Filled.Delete" Color="Color.Error" 
+                                     Size="Size.Small" Variant="Variant.Outlined"
+                                     OnClick="@(() => RemoveCsvFile(index))">
+                            Remove File
+                          </MudButton>
+                        </MudStack>
+                      </MudStack>
+
+                      <!-- View Mode Toggle -->
+                      <MudPaper Elevation="1" Class="pa-2">
+                        <MudStack Row Justify="Justify.Center" Spacing="1">
+                          <MudButton StartIcon="@Icons.Material.Filled.TableChart" 
+                                     Color="@(csvFile.ViewMode == CsvViewMode.Table ? Color.Primary : Color.Default)"
+                                     Variant="@(csvFile.ViewMode == CsvViewMode.Table ? Variant.Filled : Variant.Outlined)"
+                                     Size="Size.Small" OnClick="@(() => SwitchToTableView(csvFile))">
+                            Table View
+                          </MudButton>
+                          <MudButton StartIcon="@Icons.Material.Filled.TextFields" 
+                                     Color="@(csvFile.ViewMode == CsvViewMode.Text ? Color.Primary : Color.Default)"
+                                     Variant="@(csvFile.ViewMode == CsvViewMode.Text ? Variant.Filled : Variant.Outlined)"
+                                     Size="Size.Small" OnClick="@(() => SwitchToTextView(csvFile))">
+                            CSV Text
+                          </MudButton>
+                        </MudStack>
+                      </MudPaper>
+
+                      @if (csvFile.ViewMode == CsvViewMode.Text)
+                      {
+                        <MudPaper Elevation="1" Class="pa-3">
+                          <MudStack Spacing="2">
+                            <MudTextField T="string" Text="@csvFile.CsvText"
+                                          TextChanged="@( (string v) => { csvFile.CsvText = v; OnCsvTextChanged(csvFile, v); })"
+                                          InputType="InputType.Text"
+                                          Label="CSV Content"
+                                          Placeholder="Enter CSV data with commas (e.g., Name,Age,City&#10;John,25,New York&#10;Jane,30,Boston)"
+                                          Lines="14" Variant="Variant.Outlined" FullWidth="true"
+                                          Immediate="true"
+                                          TextUpdateSuppression="false"
+                                          HelperText="Use commas to separate values. Use quotes around values containing commas or newlines." />
+                            <MudStack Row Spacing="2">
+                              <MudTooltip Text="@GetParseButtonTooltip(csvFile)">
+                                <div>
+                                  <MudButton StartIcon="@Icons.Material.Filled.TableChart" Color="Color.Primary" 
+                                             Size="Size.Small" Variant="Variant.Outlined"
+                                             OnClick="@(() => ParseCsvToTable(csvFile))"
+                                             Disabled="@(!CanParse(csvFile))">
+                                    Parse CSV to Table
+                                  </MudButton>
+                                </div>
+                              </MudTooltip>
+                              <MudButton StartIcon="@Icons.Material.Filled.Clear" Color="Color.Error" 
+                                         Size="Size.Small" Variant="Variant.Outlined"
+                                         OnClick="@(() => ClearCsvData(csvFile))">
+                                Clear All
+                              </MudButton>
+                              <MudText Typo="Typo.caption" Class="align-self-center">
+                                Text Length: @csvFile.CsvText.Length
+                              </MudText>
+                              <MudButton StartIcon="@Icons.Material.Filled.BugReport" Color="Color.Info" Size="Size.Small" Variant="Variant.Text" OnClick="@(() => Console.WriteLine($"Manual Debug Length={csvFile.CsvText.Length}"))">Log Length</MudButton>
+                              @if (GetCsvAnalysis(csvFile) is var analysis && (analysis.Columns > MaxColumns || analysis.Rows > MaxRows))
+                              {
+                                <MudText Typo="Typo.caption" Color="Color.Error" Class="ml-2">
+                                  @(analysis.Columns > MaxColumns ? $"Cols: {analysis.Columns}>{MaxColumns}. " : string.Empty)@(analysis.Rows > MaxRows ? $"Rows: {analysis.Rows}>{MaxRows}. " : string.Empty)Will trim on parse.
+                                </MudText>
+                              }
+                            </MudStack>
+                          </MudStack>
+                        </MudPaper>
+                      }
+                      else if (csvFile.Columns.Any() && csvFile.Rows.Any())
+                      {
+                        <MudPaper Elevation="1" Class="pa-3">
+                          <MudTable Items="@csvFile.Rows" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm" 
+                                    Loading="@Loading" LoadingProgressColor="Color.Info">
+                            <HeaderContent>
+                              @foreach (var (column, colIndex) in csvFile.Columns.Select((c, i) => (c, i)))
+                              {
+                                <MudTh>
+                                  <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                                    <MudTextField @bind-Value="column.Name" Placeholder="Column Name" 
+                                                  Style="min-width: 120px;" Variant="Variant.Text" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" 
+                                                   Color="Color.Error" OnClick="@(() => RemoveColumn(index, colIndex))" />
+                                  </MudStack>
+                                </MudTh>
+                              }
+                            </HeaderContent>
+                            <RowTemplate Context="row">
+                              @for (int colIndex = 0; colIndex < csvFile.Columns.Count; colIndex++)
+                              {
+                                var localColIndex = colIndex; // Capture for closure
+                                <MudTd DataLabel="@csvFile.Columns[localColIndex].Name">
+                                  <MudTextField Value="@(localColIndex < row.Values.Count ? row.Values[localColIndex] : "")"
+                                                ValueChanged="@((string val) => SetRowValue(row, localColIndex, val))"
+                                                Placeholder="Enter value" 
+                                                Variant="Variant.Text" Style="min-width: 100px;" />
+                                </MudTd>
+                              }
+                              <MudTd>
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" 
+                                               Color="Color.Error" OnClick="@(() => RemoveRow(index, csvFile.Rows.IndexOf(row)))" />
+                              </MudTd>
+                            </RowTemplate>
+                          </MudTable>
+                        </MudPaper>
+                      }
+                      else
+                      {
+                        <MudAlert Severity="Severity.Info">
+                          <MudText>This CSV file has no data. Add columns and rows to build your dataset.</MudText>
+                          <MudStack Row Spacing="2" Class="mt-2">
+                            <MudButton StartIcon="@Icons.Material.Filled.ViewColumn" Color="Color.Primary" 
+                                       Size="Size.Small" OnClick="@(() => AddSampleColumns(index))">
+                              Add Sample Columns
+                            </MudButton>
+                          </MudStack>
+                        </MudAlert>
+                      }
+                    </MudStack>
+                  </MudTabPanel>
+                }
+              </MudTabs>
+            }
+          </MudCardContent>
+        </MudCard>
+      </MudItem>
+
+      <!-- Tasks Section -->
+      <MudItem xs="12">
+        <MudCard>
+          <MudCardHeader>
+            <CardHeaderContent>
+              <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.h5">Exam Tasks</MudText>
+                <MudButton StartIcon="@Icons.Material.Filled.Add" Color="Color.Primary" 
+                           OnClick="AddTask" Size="Size.Small" Variant="Variant.Outlined">
+                  Add Task
+                </MudButton>
+              </MudStack>
+            </CardHeaderContent>
+          </MudCardHeader>
+          <MudCardContent>
+            @if (!ExamData.Tasks.Any())
+            {
+              <MudAlert Severity="Severity.Warning">
+                No tasks configured. Add at least one task for the exam.
+              </MudAlert>
+            }
+            else
+            {
+              <MudStack Spacing="3">
+                @foreach (var (task, index) in ExamData.Tasks.Select((t, i) => (t, i)))
+                {
+                  <MudCard Outlined="true">
+                    <MudCardContent>
+                      <MudStack Spacing="2">
+                        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                          <MudText Typo="Typo.h6">Task @(task.Id)</MudText>
+                          <MudButton StartIcon="@Icons.Material.Filled.Delete" Color="Color.Error" 
+                                     Size="Size.Small" Variant="Variant.Text"
+                                     OnClick="@(() => RemoveTask(index))">
+                            Remove
+                          </MudButton>
+                        </MudStack>
+                        <MudTextField @bind-Value="task.Description" Label="Task Description" 
+                                      Lines="4" Variant="Variant.Outlined" FullWidth="true"
+                                      Placeholder="Describe what the student should accomplish in this task..." />
+                      </MudStack>
+                    </MudCardContent>
+                  </MudCard>
+                }
+              </MudStack>
+            }
+          </MudCardContent>
+        </MudCard>
+      </MudItem>
+
+      <!-- Actions -->
+      <MudItem xs="12">
+        <MudCard>
+          <MudCardContent>
+            <MudStack Row Spacing="3" Justify="Justify.Center">
+              <MudButton Color="Color.Primary" Variant="Variant.Filled" Size="Size.Large"
+                         StartIcon="@Icons.Material.Filled.Save" 
+                         OnClick="SaveExam" 
+                         Disabled="@(Loading || !IsValidExam())">
+                @(Loading ? "Saving..." : "Save Fallback Exam")
+              </MudButton>
+              
+              <MudButton Color="Color.Secondary" Variant="Variant.Outlined" Size="Size.Large"
+                         StartIcon="@Icons.Material.Filled.Preview" 
+                         OnClick="PreviewJson"
+                         Disabled="@Loading">
+                Preview JSON
+              </MudButton>
+              
+              <MudButton Color="Color.Warning" Variant="Variant.Outlined" Size="Size.Large"
+                         StartIcon="@Icons.Material.Filled.Refresh" 
+                         OnClick="LoadDefaultTemplate"
+                         Disabled="@Loading">
+                Load Template
+              </MudButton>
+            </MudStack>
+          </MudCardContent>
+        </MudCard>
+      </MudItem>
+    </MudGrid>
+  </MudStack>
+</MudContainer>
+
+@* Inline JSON Preview Custom Modal *@
+@if (ShowPreviewDialog)
+{
+  <div style="position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1200; display:flex; align-items:center; justify-content:center;">
+    <div style="background:var(--mud-palette-background); width:95%; max-width:1400px; height:85vh; display:flex; flex-direction:column; border-radius:8px; box-shadow:0 8px 32px rgba(0,0,0,0.45);">
+      <div style="padding:12px 16px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--mud-palette-lines);">
+        <div style="font-size:1.1rem; font-weight:600;">Generated JSON Preview</div>
+        <button type="button" @onclick="ClosePreview" style="background:transparent; border:none; cursor:pointer; color:var(--mud-palette-text-primary);">
+          <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Medium" />
+        </button>
+      </div>
+      <div style="flex:1; position:relative; margin:12px 20px; border:1px solid var(--mud-palette-lines); border-radius:6px; overflow:hidden;">
+        <div id="@JsonEditorElementId" style="position:absolute; inset:0;" />
+      </div>
+      <div style="padding:10px 20px; display:flex; gap:16px; align-items:center; border-top:1px solid var(--mud-palette-lines);">
+        <MudButton StartIcon="@Icons.Material.Filled.ContentCopy" Color="Color.Primary" Variant="Variant.Outlined" Disabled="@string.IsNullOrWhiteSpace(GeneratedJson)" OnClick="CopyJsonAsync">Copy</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Download" Color="Color.Secondary" Variant="Variant.Outlined" Disabled="@string.IsNullOrWhiteSpace(GeneratedJson)" OnClick="DownloadJsonAsync">Download</MudButton>
+  <MudButton StartIcon="@Icons.Material.Filled.Visibility" Color="Color.Info" Variant="Variant.Text" Disabled="@string.IsNullOrWhiteSpace(GeneratedJson)" OnClick="@(() => Console.WriteLine($"Editor length {GeneratedJson?.Length}"))">Log Length</MudButton>
+        <MudText Typo="Typo.caption" Class="ml-auto">Length: @GeneratedJson?.Length</MudText>
+      </div>
+    </div>
+  </div>
+}
+
+@* JSON preview migrated from dialog service to inline modal *@
+
+@code {
+  private bool Loading = false;
+  private string GeneratedJson = string.Empty; // retained for generation before passing to dialog
+  // Inline JSON preview modal state
+  private bool ShowPreviewDialog = false;
+  private bool JsonEditorInitialized = false;
+  private string JsonEditorElementId = $"json_preview_{Guid.NewGuid().ToString("N")}";
+  private FallbackExamData ExamData = new();
+  private const int MaxColumns = 20; // Increased from 8
+  private const int MaxRows = 100;   // Increased from 25
+
+  public class FallbackExamData
+  {
+    public string Domain { get; set; } = "";
+    public string Overview { get; set; } = "";
+    public List<CsvFileData> CsvFiles { get; set; } = new();
+    public List<TaskData> Tasks { get; set; } = new();
+  }
+
+  public class CsvFileData
+  {
+    public string Filename { get; set; } = "";
+    public List<Services.CsvColumn> Columns { get; set; } = new();
+    public List<Services.CsvRow> Rows { get; set; } = new();
+    public CsvViewMode ViewMode { get; set; } = CsvViewMode.Table;
+    public string CsvText { get; set; } = "";
+    public bool FromUpload { get; set; } = false; // Indicates file originated from upload
+  }
+
+  public enum CsvViewMode
+  {
+    Table,
+    Text
+  }
+
+  public class TaskData
+  {
+    public int Id { get; set; } = 1;
+    public string Description { get; set; } = "";
+  }
+  
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (firstRender)
+    {
+      await Auth.InitializeAsync();
+      if (!Auth.IsTeacher) 
+      { 
+        Nav.NavigateTo("/login"); 
+        return; 
+      }
+      Loading = true;
+      try
+      {
+        var fallbackData = await Api.GetFallbackExamAsync();
+        LoadExamFromJson(fallbackData);
+      }
+      catch (Exception ex)
+      {
+        Snackbar.Add($"Error loading fallback exam: {ex.Message}", Severity.Error);
+        LoadDefaultTemplate();
+      }
+      finally
+      {
+        Loading = false;
+        StateHasChanged();
+      }
+    }
+    // Initialize or update JSON editor when dialog open
+    if (ShowPreviewDialog)
+    {
+      await EnsureJsonEditorAsync();
+    }
+  }
+
+  private void LoadExamFromJson(object? jsonData)
+  {
+    try
+    {
+      if (jsonData == null) 
+      {
+        LoadDefaultTemplate();
+        return;
+      }
+
+      var jsonString = System.Text.Json.JsonSerializer.Serialize(jsonData);
+      var jsonDoc = System.Text.Json.JsonDocument.Parse(jsonString);
+      
+      if (jsonDoc.RootElement.TryGetProperty("exam", out var examElement))
+      {
+        ExamData.Domain = examElement.TryGetProperty("domain", out var domain) ? domain.GetString() ?? "" : "";
+        ExamData.Overview = examElement.TryGetProperty("overview", out var overview) ? overview.GetString() ?? "" : "";
+
+        // Load CSV files
+        ExamData.CsvFiles.Clear();
+        if (examElement.TryGetProperty("csv_files", out var csvFilesElement) && csvFilesElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+        {
+          foreach (var csvFile in csvFilesElement.EnumerateArray())
+          {
+            var filename = csvFile.TryGetProperty("filename", out var fn) ? fn.GetString() ?? "" : "";
+            var csvData = new CsvFileData { Filename = filename };
+            
+            // Convert JSON content to table structure
+            if (csvFile.TryGetProperty("content", out var contentElement) && contentElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+              ConvertJsonToTable(csvData, contentElement);
+            }
+            
+            ExamData.CsvFiles.Add(csvData);
+          }
+        }
+
+        // Load tasks
+        ExamData.Tasks.Clear();
+        if (examElement.TryGetProperty("tasks", out var tasksElement) && tasksElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+        {
+          foreach (var task in tasksElement.EnumerateArray())
+          {
+            var id = task.TryGetProperty("id", out var taskId) ? taskId.GetInt32() : 1;
+            var description = task.TryGetProperty("description", out var desc) ? desc.GetString() ?? "" : "";
+            
+            ExamData.Tasks.Add(new TaskData { Id = id, Description = description });
+          }
+        }
+      }
+      else
+      {
+        LoadDefaultTemplate();
+      }
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error parsing exam data: {ex.Message}", Severity.Warning);
+      LoadDefaultTemplate();
+    }
+  }
+
+  private void LoadDefaultTemplate()
+  {
+    ExamData = new FallbackExamData
+    {
+      Domain = "E-commerce Platform Management",
+      Overview = "You are developing a comprehensive e-commerce platform management system for a growing online retail company that needs to analyze customer behavior, order patterns, and business performance across multiple dimensions.",
+      CsvFiles = new List<CsvFileData>
+      {
+        new() {
+          Filename = "customers.csv",
+          Columns = new List<CsvColumn> 
+          {
+            new() { Name = "CustomerID" },
+            new() { Name = "Name" },
+            new() { Name = "Email" },
+            new() { Name = "Status" }
+          },
+          Rows = new List<CsvRow>
+          {
+            new() { Values = new List<string> { "C001", "John Smith", "john.smith@email.com", "Premium" } },
+            new() { Values = new List<string> { "C002", "Jane Doe", "jane.doe@email.com", "Standard" } }
+          }
+        },
+        new() {
+          Filename = "orders.csv",
+          Columns = new List<CsvColumn>
+          {
+            new() { Name = "OrderID" },
+            new() { Name = "CustomerID" },
+            new() { Name = "ProductName" },
+            new() { Name = "Price" },
+            new() { Name = "Status" }
+          },
+          Rows = new List<CsvRow>
+          {
+            new() { Values = new List<string> { "O001", "C001", "Laptop Pro", "1299.99", "Delivered" } },
+            new() { Values = new List<string> { "O002", "C002", "Mouse", "29.99", "Pending" } }
+          }
+        }
+      },
+      Tasks = new List<TaskData>
+      {
+        new() { Id = 1, Description = "Develop a comprehensive customer analysis system that loads data from both CSV files..." },
+        new() { Id = 2, Description = "Create an advanced order fulfillment analysis..." },
+        new() { Id = 3, Description = "Implement a sophisticated multi-dimensional sorting system..." },
+        new() { Id = 4, Description = "Design and implement a comprehensive analytics dashboard..." }
+      }
+    };
+  }
+
+  private void AddCsvFile()
+  {
+    string filename = $"NewFile{ExamData.CsvFiles.Count + 1}.csv";
+    var newFile = new CsvFileData 
+    { 
+      Filename = filename,
+      Columns = new List<Services.CsvColumn> { new() { Name = "Column1" }, new() { Name = "Column2" } },
+      Rows = new List<Services.CsvRow> { new() { Values = new List<string> { "", "" } } }
+    };
+    ExamData.CsvFiles.Add(newFile);
+  }
+
+  private void RemoveCsvFile(int index)
+  {
+    if (index >= 0 && index < ExamData.CsvFiles.Count)
+    {
+      ExamData.CsvFiles.RemoveAt(index);
+    }
+  }
+
+  private void AddColumn(int fileIndex)
+  {
+    if (fileIndex >= 0 && fileIndex < ExamData.CsvFiles.Count)
+    {
+      var file = ExamData.CsvFiles[fileIndex];
+      if (file.Columns.Count >= MaxColumns)
+      {
+        Snackbar.Add($"Maximum of {MaxColumns} columns reached", Severity.Warning);
+        return;
+      }
+      file.Columns.Add(new Services.CsvColumn { Name = $"Column{file.Columns.Count + 1}" });
+      
+      // Add empty value to all existing rows
+      foreach (var row in file.Rows)
+      {
+        row.Values.Add("");
+      }
+    }
+  }
+
+  private void RemoveColumn(int fileIndex, int columnIndex)
+  {
+    if (fileIndex >= 0 && fileIndex < ExamData.CsvFiles.Count)
+    {
+      var file = ExamData.CsvFiles[fileIndex];
+      if (columnIndex >= 0 && columnIndex < file.Columns.Count)
+      {
+        file.Columns.RemoveAt(columnIndex);
+        
+        // Remove corresponding value from all rows
+        foreach (var row in file.Rows)
+        {
+          if (columnIndex < row.Values.Count)
+          {
+            row.Values.RemoveAt(columnIndex);
+          }
+        }
+      }
+    }
+  }
+
+  private void AddRow(int fileIndex)
+  {
+    if (fileIndex >= 0 && fileIndex < ExamData.CsvFiles.Count)
+    {
+      var file = ExamData.CsvFiles[fileIndex];
+      if (file.Rows.Count >= MaxRows)
+      {
+        Snackbar.Add($"Maximum of {MaxRows} rows reached", Severity.Warning);
+        return;
+      }
+      var newRow = new Services.CsvRow();
+      
+      // Add empty values for each column
+      for (int i = 0; i < file.Columns.Count; i++)
+      {
+        newRow.Values.Add("");
+      }
+      
+      file.Rows.Add(newRow);
+    }
+  }
+
+  private void RemoveRow(int fileIndex, int rowIndex)
+  {
+    if (fileIndex >= 0 && fileIndex < ExamData.CsvFiles.Count)
+    {
+      var file = ExamData.CsvFiles[fileIndex];
+      if (rowIndex >= 0 && rowIndex < file.Rows.Count)
+      {
+        file.Rows.RemoveAt(rowIndex);
+      }
+    }
+  }
+
+  private void AddSampleColumns(int fileIndex)
+  {
+    if (fileIndex >= 0 && fileIndex < ExamData.CsvFiles.Count)
+    {
+      var file = ExamData.CsvFiles[fileIndex];
+      
+      // Clear existing data
+      file.Columns.Clear();
+      file.Rows.Clear();
+      
+      if (file.Filename.ToLower().Contains("customer"))
+      {
+        file.Columns.AddRange(new[]
+        {
+          new Services.CsvColumn { Name = "CustomerID" },
+          new Services.CsvColumn { Name = "Name" },
+          new Services.CsvColumn { Name = "Email" },
+          new Services.CsvColumn { Name = "Status" }
+        });
+        
+        file.Rows.Add(new Services.CsvRow { Values = new List<string> { "C001", "John Smith", "john.smith@email.com", "Premium" } });
+        file.Rows.Add(new Services.CsvRow { Values = new List<string> { "C002", "Jane Doe", "jane.doe@email.com", "Standard" } });
+      }
+      else if (file.Filename.ToLower().Contains("order"))
+      {
+        file.Columns.AddRange(new[]
+        {
+          new Services.CsvColumn { Name = "OrderID" },
+          new Services.CsvColumn { Name = "CustomerID" },
+          new Services.CsvColumn { Name = "ProductName" },
+          new Services.CsvColumn { Name = "Price" },
+          new Services.CsvColumn { Name = "Status" }
+        });
+        
+        file.Rows.Add(new Services.CsvRow { Values = new List<string> { "O001", "C001", "Laptop Pro", "1299.99", "Delivered" } });
+        file.Rows.Add(new Services.CsvRow { Values = new List<string> { "O002", "C002", "Mouse", "29.99", "Pending" } });
+      }
+      else
+      {
+        file.Columns.AddRange(new[]
+        {
+          new Services.CsvColumn { Name = "Column1" },
+          new Services.CsvColumn { Name = "Column2" },
+          new Services.CsvColumn { Name = "Column3" }
+        });
+        
+        file.Rows.Add(new Services.CsvRow { Values = new List<string> { "Value1", "Value2", "Value3" } });
+        file.Rows.Add(new Services.CsvRow { Values = new List<string> { "Data1", "Data2", "Data3" } });
+      }
+
+      // Enforce limits after sample creation
+      if (file.Columns.Count > MaxColumns)
+      {
+        file.Columns = file.Columns.Take(MaxColumns).ToList();
+        foreach (var r in file.Rows)
+        {
+          while (r.Values.Count > MaxColumns) r.Values.RemoveAt(r.Values.Count - 1);
+        }
+        Snackbar.Add($"Sample trimmed to {MaxColumns} columns", Severity.Info);
+      }
+      if (file.Rows.Count > MaxRows)
+      {
+        file.Rows = file.Rows.Take(MaxRows).ToList();
+        Snackbar.Add($"Sample trimmed to {MaxRows} rows", Severity.Info);
+      }
+    }
+  }
+  private void AddTask()
+  {
+    var nextId = ExamData.Tasks.Any() ? ExamData.Tasks.Max(t => t.Id) + 1 : 1;
+    ExamData.Tasks.Add(new TaskData 
+    { 
+      Id = nextId,
+      Description = "Describe the task requirements here..." 
+    });
+  }
+
+  private void RemoveTask(int index)
+  {
+    if (index >= 0 && index < ExamData.Tasks.Count)
+    {
+      ExamData.Tasks.RemoveAt(index);
+    }
+  }
+
+  private bool IsValidExam()
+  {
+    return !string.IsNullOrWhiteSpace(ExamData.Domain) && 
+           !string.IsNullOrWhiteSpace(ExamData.Overview) &&
+           ExamData.CsvFiles.Any(f => !string.IsNullOrWhiteSpace(f.Filename)) &&
+           ExamData.Tasks.Any(t => !string.IsNullOrWhiteSpace(t.Description));
+  }
+
+  private void PreviewJson()
+  {
+    try
+    {
+      var examJson = GenerateExamJson();
+      GeneratedJson = System.Text.Json.JsonSerializer.Serialize(examJson, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+      Console.WriteLine($"PreviewJson: Generated JSON length={GeneratedJson?.Length ?? 0}");
+      if (string.IsNullOrWhiteSpace(GeneratedJson))
+      {
+        Snackbar.Add("Generated JSON is empty", Severity.Warning);
+      }
+      // Show inline modal instead of dialog service
+      ShowPreviewDialog = true;
+      JsonEditorInitialized = false; // re-init ace each open
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error generating JSON: {ex.Message}", Severity.Error);
+      Console.WriteLine($"PreviewJson Error: {ex}");
+    }
+  }
+
+  private void ClosePreview()
+  {
+    ShowPreviewDialog = false;
+  }
+
+  private async Task EnsureJsonEditorAsync()
+  {
+    if (!ShowPreviewDialog) return;
+    if (!JsonEditorInitialized && !string.IsNullOrWhiteSpace(GeneratedJson))
+    {
+      try
+      {
+        // Dynamically import helper script (ES module) once; subsequent imports are cached.
+  try { await JS.InvokeVoidAsync("import", "/js/jsonPreviewAce.js"); } catch { }
+        await JS.InvokeVoidAsync("JsonPreviewAce.initJsonAce", JsonEditorElementId, GeneratedJson, "ace/theme/monokai");
+        JsonEditorInitialized = true;
+      }
+      catch (Exception ex)
+      {
+        Console.WriteLine($"Ace init failed: {ex.Message}");
+      }
+    }
+    else if (JsonEditorInitialized)
+    {
+      try { await JS.InvokeVoidAsync("JsonPreviewAce.updateJsonAce", JsonEditorElementId, GeneratedJson); } catch { }
+    }
+  }
+
+  private async Task CopyJsonAsync()
+  {
+    try
+    {
+      await JS.InvokeVoidAsync("navigator.clipboard.writeText", GeneratedJson ?? "");
+      Snackbar.Add("JSON copied to clipboard", Severity.Success);
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Copy failed: {ex.Message}", Severity.Error);
+    }
+  }
+
+  private async Task DownloadJsonAsync()
+  {
+    try
+    {
+      var bytes = Encoding.UTF8.GetBytes(GeneratedJson ?? "{}");
+      var b64 = Convert.ToBase64String(bytes);
+      await JS.InvokeVoidAsync("BlazorDownloadFile", "fallback_exam.json", "application/json", b64);
+      Snackbar.Add("Download started", Severity.Info);
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Download failed: {ex.Message}", Severity.Error);
+    }
+  }
+
+  private async Task SaveExam()
+  {
+    if (Loading || !IsValidExam()) return;
+    
+    Loading = true;
+    try
+    {
+      var examJson = GenerateExamJson();
+      await Api.SetFallbackExamAsync(examJson);
+      Snackbar.Add("Fallback exam saved successfully!", Severity.Success);
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error saving fallback exam: {ex.Message}", Severity.Error);
+    }
+    finally
+    {
+      Loading = false;
+      StateHasChanged();
+    }
+  }
+
+  private object GenerateExamJson()
+  {
+    var csvFiles = new List<object>();
+    
+    foreach (var csvFile in ExamData.CsvFiles.Where(f => !string.IsNullOrWhiteSpace(f.Filename)))
+    {
+      try
+      {
+        // Convert table structure to JSON objects
+        var contentArray = new List<Dictionary<string, string>>();
+        
+        foreach (var row in csvFile.Rows)
+        {
+          var rowObj = new Dictionary<string, string>();
+          for (int i = 0; i < csvFile.Columns.Count && i < row.Values.Count; i++)
+          {
+            rowObj[csvFile.Columns[i].Name] = row.Values[i];
+          }
+          contentArray.Add(rowObj);
+        }
+        
+        csvFiles.Add(new
+        {
+          filename = csvFile.Filename,
+          content = contentArray
+        });
+      }
+      catch
+      {
+        // If conversion fails, create a simple default structure
+        csvFiles.Add(new
+        {
+          filename = csvFile.Filename,
+          content = new[] { new Dictionary<string, string> { ["Column1"] = "Value1", ["Column2"] = "Value2" } }
+        });
+      }
+    }
+
+    var tasks = ExamData.Tasks.Where(t => !string.IsNullOrWhiteSpace(t.Description))
+                              .Select(t => new { id = t.Id, description = t.Description })
+                              .ToArray();
+
+    return new
+    {
+      exam = new
+      {
+        domain = ExamData.Domain,
+        csv_files = csvFiles,
+        tasks = tasks,
+        overview = ExamData.Overview
+      }
+    };
+  }
+
+  private void SetRowValue(CsvRow row, int columnIndex, string value)
+  {
+    // Ensure the row has enough values
+    while (row.Values.Count <= columnIndex)
+    {
+      row.Values.Add("");
+    }
+    row.Values[columnIndex] = value;
+  }
+
+  private void ConvertJsonToTable(CsvFileData csvData, System.Text.Json.JsonElement contentElement)
+  {
+    try
+    {
+      if (contentElement.ValueKind == System.Text.Json.JsonValueKind.Array && contentElement.GetArrayLength() > 0)
+      {
+        var firstItem = contentElement[0];
+        if (firstItem.ValueKind == System.Text.Json.JsonValueKind.Object)
+        {
+          // Extract column names from the first object
+          csvData.Columns.Clear();
+          foreach (var prop in firstItem.EnumerateObject())
+          {
+            csvData.Columns.Add(new Services.CsvColumn { Name = prop.Name });
+          }
+
+          // Extract all rows
+          csvData.Rows.Clear();
+          foreach (var item in contentElement.EnumerateArray())
+          {
+            if (item.ValueKind == System.Text.Json.JsonValueKind.Object)
+            {
+              var row = new Services.CsvRow();
+              foreach (var column in csvData.Columns)
+              {
+                var value = "";
+                if (item.TryGetProperty(column.Name, out var prop))
+                {
+                  value = prop.ValueKind == System.Text.Json.JsonValueKind.String 
+                    ? prop.GetString() ?? ""
+                    : prop.ToString();
+                }
+                row.Values.Add(value);
+              }
+              csvData.Rows.Add(row);
+              if (csvData.Rows.Count >= MaxRows) break; // stop early if over row limit
+            }
+          }
+        }
+      }
+
+      // Trim columns if necessary
+      if (csvData.Columns.Count > MaxColumns)
+      {
+        csvData.Columns = csvData.Columns.Take(MaxColumns).ToList();
+        foreach (var r in csvData.Rows)
+        {
+          while (r.Values.Count > MaxColumns) r.Values.RemoveAt(r.Values.Count - 1);
+        }
+      }
+    }
+    catch
+    {
+      // If conversion fails, add default structure
+      csvData.Columns.Clear();
+      csvData.Columns.Add(new Services.CsvColumn { Name = "Column1" });
+      csvData.Columns.Add(new Services.CsvColumn { Name = "Column2" });
+      
+      csvData.Rows.Clear();
+      csvData.Rows.Add(new Services.CsvRow { Values = new List<string> { "Value1", "Value2" } });
+    }
+  }
+
+  private void SwitchToTableView(CsvFileData csvFile)
+  {
+    // Convert CSV text to table if switching from text view
+    if (csvFile.ViewMode == CsvViewMode.Text && !string.IsNullOrWhiteSpace(csvFile.CsvText))
+    {
+      try
+      {
+        var (serviceColumns, serviceRows) = CsvService.ParseCsvText(csvFile.CsvText);
+        
+        // Use service types directly
+        var originalColCount = serviceColumns.Count;
+        var originalRowCount = serviceRows.Count;
+        bool trimmed = false;
+        if (serviceColumns.Count > MaxColumns)
+        {
+          serviceColumns = serviceColumns.Take(MaxColumns).ToList();
+          foreach (var r in serviceRows)
+          {
+            while (r.Values.Count > MaxColumns) r.Values.RemoveAt(r.Values.Count - 1);
+          }
+          trimmed = true;
+        }
+        if (serviceRows.Count > MaxRows)
+        {
+          serviceRows = serviceRows.Take(MaxRows).ToList();
+          trimmed = true;
+        }
+
+        csvFile.Columns = serviceColumns;
+        csvFile.Rows = serviceRows;
+        
+        if (trimmed)
+        {
+          Snackbar.Add($"Parsed CSV: {originalColCount}->{csvFile.Columns.Count} cols, {originalRowCount}->{csvFile.Rows.Count} rows (limits {MaxColumns}/{MaxRows})", Severity.Warning);
+        }
+        else
+        {
+          Snackbar.Add($"Parsed CSV: {csvFile.Columns.Count} columns, {csvFile.Rows.Count} rows", Severity.Success);
+        }
+      }
+      catch (Exception ex)
+      {
+        Snackbar.Add($"Error parsing CSV: {ex.Message}", Severity.Error);
+      }
+    }
+    else if (csvFile.ViewMode == CsvViewMode.Text)
+    {
+      Snackbar.Add("No CSV text to parse", Severity.Warning);
+    }
+    
+    csvFile.ViewMode = CsvViewMode.Table;
+    StateHasChanged();
+  }
+
+  private void SwitchToTextView(CsvFileData csvFile)
+  {
+    // Convert table to CSV text if switching from table view
+    if (csvFile.ViewMode == CsvViewMode.Table && csvFile.Columns.Any())
+    {
+      // Use service types directly
+      csvFile.CsvText = CsvService.ConvertTableToCsv(csvFile.Columns, csvFile.Rows);
+    }
+    
+    csvFile.ViewMode = CsvViewMode.Text;
+    StateHasChanged();
+  }
+
+  private void ParseCsvToTable(CsvFileData csvFile)
+  {
+    if (string.IsNullOrWhiteSpace(csvFile.CsvText))
+    {
+      Snackbar.Add("No CSV text to parse", Severity.Warning);
+      return;
+    }
+
+    try
+    {
+      // Debug: Log the CSV text being parsed
+      Console.WriteLine($"Parsing CSV text: '{csvFile.CsvText}'");
+      Console.WriteLine($"Length: {csvFile.CsvText.Length}");
+      
+      var (serviceColumns, serviceRows) = CsvService.ParseCsvText(csvFile.CsvText);
+
+      // Trim to limits
+      var origCols = serviceColumns.Count;
+      var origRows = serviceRows.Count;
+      bool trimmed = false;
+      if (serviceColumns.Count > MaxColumns)
+      {
+        serviceColumns = serviceColumns.Take(MaxColumns).ToList();
+        foreach (var r in serviceRows)
+        {
+          while (r.Values.Count > MaxColumns) r.Values.RemoveAt(r.Values.Count - 1);
+        }
+        trimmed = true;
+      }
+      if (serviceRows.Count > MaxRows)
+      {
+        serviceRows = serviceRows.Take(MaxRows).ToList();
+        trimmed = true;
+      }
+      
+      Console.WriteLine($"Parsed columns: {serviceColumns.Count}");
+      Console.WriteLine($"Parsed rows: {serviceRows.Count}");
+      
+      // Use service types directly
+      csvFile.Columns = serviceColumns;
+      csvFile.Rows = serviceRows;
+      
+      if (csvFile.Columns.Count > 0 || csvFile.Rows.Count > 0)
+      {
+        Snackbar.Add(trimmed
+          ? $"Successfully parsed CSV (trimmed): {origCols}->{csvFile.Columns.Count} cols, {origRows}->{csvFile.Rows.Count} rows (limits {MaxColumns}/{MaxRows})"
+          : $"Successfully parsed CSV: {csvFile.Columns.Count} columns, {csvFile.Rows.Count} rows", trimmed ? Severity.Warning : Severity.Success);
+      }
+      else
+      {
+        Snackbar.Add("CSV parsed but no data found. Check format.", Severity.Warning);
+      }
+      StateHasChanged();
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error parsing CSV: {ex.Message}", Severity.Error);
+      Console.WriteLine($"CSV Parse Error: {ex}");
+    }
+  }
+  
+  private void ClearCsvData(CsvFileData csvFile)
+  {
+    csvFile.CsvText = "";
+    csvFile.Columns.Clear();
+    csvFile.Rows.Clear();
+    Snackbar.Add("CSV data cleared", Severity.Info);
+    StateHasChanged();
+  }
+
+  private void OnCsvTextChanged(CsvFileData csvFile, string? newValue)
+  {
+    // newValue already assigned by bind; just debug
+    var len = newValue?.Length ?? 0;
+    var preview = newValue == null ? "" : (newValue.Length > 120 ? newValue.Substring(0,120) + "..." : newValue);
+    Console.WriteLine($"OnCsvTextChanged: length={len} preview='{preview.Replace("\n","\\n").Replace("\r","\\r")}'");
+    StateHasChanged();
+  }
+
+  private async Task ImportCsvFileAsync(CsvFileData target, InputFileChangeEventArgs e)
+  {
+    try
+    {
+      var file = e.File;
+      if (file == null)
+      {
+        Snackbar.Add("No file selected", Severity.Warning);
+        return;
+      }
+      if (!file.Name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+      {
+        Snackbar.Add("Please select a .csv file", Severity.Warning);
+        return;
+      }
+      // Read file content
+      using var stream = file.OpenReadStream(maxAllowedSize: 2 * 1024 * 1024); // 2MB limit
+      using var reader = new StreamReader(stream);
+      var text = await reader.ReadToEndAsync();
+      Console.WriteLine($"ImportCsvFileAsync: Read {text.Length} chars from file '{file.Name}'");
+      target.CsvText = text;
+      // Parse & trim
+      var (cols, rows) = CsvService.ParseCsvText(target.CsvText);
+      var origCols2 = cols.Count; var origRows2 = rows.Count; bool trimmed = false;
+      if (cols.Count > MaxColumns)
+      {
+        cols = cols.Take(MaxColumns).ToList();
+        foreach (var r in rows)
+        {
+          while (r.Values.Count > MaxColumns) r.Values.RemoveAt(r.Values.Count - 1);
+        }
+        trimmed = true;
+      }
+      if (rows.Count > MaxRows)
+      {
+        rows = rows.Take(MaxRows).ToList();
+        trimmed = true;
+      }
+      target.Columns = cols;
+      target.Rows = rows;
+      target.ViewMode = CsvViewMode.Table; // jump directly to table after import
+      Snackbar.Add(trimmed
+        ? $"Imported CSV '{file.Name}' (trimmed {origCols2}->{cols.Count} cols, {origRows2}->{rows.Count} rows; limits {MaxColumns}/{MaxRows})"
+        : $"Imported CSV '{file.Name}' ({cols.Count} cols, {rows.Count} rows)", trimmed ? Severity.Warning : Severity.Success);
+      StateHasChanged();
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error importing CSV: {ex.Message}", Severity.Error);
+      Console.WriteLine($"ImportCsvFileAsync Error: {ex}");
+    }
+  }
+
+  // New multi-file importer (global)
+  private async Task ImportCsvFilesAsync(InputFileChangeEventArgs e)
+  {
+    try
+    {
+      var files = e.GetMultipleFiles();
+      if (files == null || files.Count == 0)
+      {
+        Snackbar.Add("No files selected", Severity.Info);
+        return;
+      }
+      var invalid = new List<string>();
+      int added = 0;
+      foreach (var file in files)
+      {
+        if (!file.Name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+        {
+          invalid.Add(file.Name);
+          continue;
+        }
+        if (file.Size > 2 * 1024 * 1024)
+        {
+          Snackbar.Add($"{file.Name} exceeds 2MB limit and was skipped", Severity.Warning);
+          continue;
+        }
+        try
+        {
+          using var stream = file.OpenReadStream(maxAllowedSize: 2 * 1024 * 1024);
+          using var reader = new StreamReader(stream);
+          var text = await reader.ReadToEndAsync();
+          var (cols, rows) = CsvService.ParseCsvText(text);
+          var origCols3 = cols.Count; var origRows3 = rows.Count; bool trimmed = false;
+          if (cols.Count > MaxColumns)
+          {
+            cols = cols.Take(MaxColumns).ToList();
+            foreach (var r in rows)
+            {
+              while (r.Values.Count > MaxColumns) r.Values.RemoveAt(r.Values.Count - 1);
+            }
+            trimmed = true;
+          }
+          if (rows.Count > MaxRows)
+          {
+            rows = rows.Take(MaxRows).ToList();
+            trimmed = true;
+          }
+          var filename = GenerateUniqueFilename(file.Name);
+          ExamData.CsvFiles.Add(new CsvFileData
+          {
+            Filename = filename,
+            Columns = cols,
+            Rows = rows,
+            CsvText = text,
+            ViewMode = CsvViewMode.Table,
+            FromUpload = true
+          });
+          added++;
+          Snackbar.Add(trimmed
+            ? $"Imported {filename} (trimmed {origCols3}->{cols.Count} cols, {origRows3}->{rows.Count} rows; limits {MaxColumns}/{MaxRows})"
+            : $"Imported {filename} ({cols.Count} cols, {rows.Count} rows)", trimmed ? Severity.Warning : Severity.Success);
+        }
+        catch (Exception exFile)
+        {
+          Snackbar.Add($"Error importing {file.Name}: {exFile.Message}", Severity.Error);
+        }
+      }
+      if (invalid.Any())
+      {
+        Snackbar.Add($"Skipped non-CSV files: {string.Join(", ", invalid)}", Severity.Warning);
+      }
+      if (added == 0 && invalid.Any())
+      {
+        Snackbar.Add("No CSV files were imported", Severity.Info);
+      }
+      StateHasChanged();
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error importing files: {ex.Message}", Severity.Error);
+    }
+  }
+
+  private string GenerateUniqueFilename(string original)
+  {
+    try
+    {
+      var baseName = System.IO.Path.GetFileNameWithoutExtension(original);
+      var ext = System.IO.Path.GetExtension(original);
+      if (string.IsNullOrWhiteSpace(ext)) ext = ".csv";
+      var candidate = original;
+      int counter = 1;
+      while (ExamData.CsvFiles.Any(f => f.Filename.Equals(candidate, StringComparison.OrdinalIgnoreCase)))
+      {
+        candidate = $"{baseName}_{counter}{ext}";
+        counter++;
+      }
+      return candidate;
+    }
+    catch
+    {
+      return original;
+    }
+  }
+
+  // --- CSV Text Pre-Parse Analysis Helpers ---
+  private record CsvAnalysis(int Columns, int Rows, bool HasHeader);
+
+  private CsvAnalysis GetCsvAnalysis(CsvFileData file)
+  {
+    try
+    {
+      if (string.IsNullOrWhiteSpace(file.CsvText)) return new CsvAnalysis(0,0,false);
+      // Fast scan: count lines, header fields only (avoid full parse for performance)
+      var lines = file.CsvText.Split('\n');
+      if (lines.Length == 0) return new CsvAnalysis(0,0,false);
+      var header = lines[0].TrimEnd('\r');
+      int cols = FastCountCsvColumns(header);
+      // Count non-empty lines excluding header
+      int dataRows = 0;
+      for (int i=1;i<lines.Length;i++)
+      {
+        var l = lines[i];
+        if (!string.IsNullOrWhiteSpace(l.Trim('\r'))) dataRows++;
+        if (dataRows > MaxRows && cols > MaxColumns) break; // early exit
+      }
+      return new CsvAnalysis(cols, dataRows, true);
+    }
+    catch
+    {
+      return new CsvAnalysis(0,0,false);
+    }
+  }
+
+  private int FastCountCsvColumns(string header)
+  {
+    // Simple state machine similar to parser but just counts commas outside quotes
+    bool inQuotes=false; int cols=1; // at least one col if header not empty
+    for (int i=0;i<header.Length;i++)
+    {
+      char c = header[i];
+      if (c=='"')
+      {
+        if (inQuotes && i+1 < header.Length && header[i+1]=='"') { i++; continue; }
+        inQuotes = !inQuotes;
+      }
+      else if (c==',' && !inQuotes) cols++;
+    }
+    return string.IsNullOrWhiteSpace(header)?0:cols;
+  }
+
+  private bool IsOverLimits(CsvFileData file, out CsvAnalysis analysis)
+  {
+    analysis = GetCsvAnalysis(file);
+    return analysis.Columns > MaxColumns || analysis.Rows > MaxRows;
+  }
+
+  private bool CanParse(CsvFileData file)
+  {
+    if (string.IsNullOrWhiteSpace(file.CsvText)) return false;
+    // Allow parse even if over limits (we trim) or choose to disable? We disable only if zero columns.
+    var a = GetCsvAnalysis(file);
+    return a.Columns > 0; 
+  }
+
+  private string GetParseButtonTooltip(CsvFileData file)
+  {
+    if (string.IsNullOrWhiteSpace(file.CsvText)) return "Enter CSV text first";
+    var a = GetCsvAnalysis(file);
+    if (a.Columns==0) return "No columns detected in header";
+    if (a.Columns > MaxColumns || a.Rows > MaxRows)
+    {
+      var parts = new List<string>();
+      if (a.Columns > MaxColumns) parts.Add($"Columns {a.Columns}>{MaxColumns}");
+      if (a.Rows > MaxRows) parts.Add($"Rows {a.Rows}>{MaxRows}");
+      return string.Join(", ", parts) + " - will be trimmed on parse";
+    }
+    return "Parse CSV to table";
+  }
+}

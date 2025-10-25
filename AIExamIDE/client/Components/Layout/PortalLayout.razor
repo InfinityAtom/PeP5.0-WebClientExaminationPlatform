@@ -1,0 +1,87 @@
+﻿@inherits LayoutComponentBase
+@inject NavigationManager Nav
+@implements IDisposable
+@inject AuthState Auth
+@inject ApiClient Api
+@inject ISnackbar Snackbar
+
+<MudThemeProvider />
+<MudDialogProvider />
+<MudPopoverProvider />
+<MudSnackbarProvider/>
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="DrawerToggle" />
+        <MudSpacer />
+        @if (Auth.IsAuthenticated)
+        {
+            <MudText Typo="Typo.subtitle2" Class="mr-2">@Auth.User?.Email</MudText>
+            <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small" OnClick="Logout">Logout</MudButton>
+        }
+        else
+        {
+            <MudButton Variant="Variant.Text" Color="Color.Inherit" OnClick="GoLogin">Login</MudButton>
+        }
+        <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Inherit" Edge="Edge.End" />
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="2">
+        <MudDrawerHeader>
+            <MudText Typo="Typo.h5" Class="mt-1">Application</MudText>
+        </MudDrawerHeader>
+        <NavMenu />
+    </MudDrawer>
+
+    <MudMainContent>
+        @Body
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+    private bool _subscribed;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Enforce snackbar position bottom-left if global config not applied yet
+            try { Snackbar.Configuration.PositionClass = MudBlazor.Defaults.Classes.Position.BottomLeft; } catch { }
+            Auth.StateChanged += HandleAuthChanged;
+            _subscribed = true;
+            await Auth.InitializeAsync(async () =>
+            {
+                try
+                {
+                    return await Api.GetCurrentUserAsync();
+                }
+                catch
+                {
+                    return null;
+                }
+            });
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void DrawerToggle() => _drawerOpen = !_drawerOpen;
+
+    private void GoLogin() => Nav.NavigateTo("/login", forceLoad: true);
+
+    private async Task Logout()
+    {
+        await Auth.LogoutAsync();
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
+
+    private void HandleAuthChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        if (_subscribed)
+        {
+            Auth.StateChanged -= HandleAuthChanged;
+            _subscribed = false;
+        }
+    }
+}

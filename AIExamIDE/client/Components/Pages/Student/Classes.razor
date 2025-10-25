@@ -1,0 +1,88 @@
+@page "/student/classes"
+@layout PortalLayout
+@rendermode InteractiveServer
+@using MudBlazor
+@using AIExamIDE.Models
+@inject AIExamIDE.Services.ApiClient Api
+@inject AIExamIDE.Services.AuthState Auth
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+  <MudStack Spacing="3">
+    <MudText Typo="Typo.h5">My Classes</MudText>
+    @if (Loading)
+    {
+      <MudProgressLinear Indeterminate="true" />
+    }
+    else if (!Auth.IsStudent)
+    {
+      <MudAlert Severity="Severity.Error">You are not authorized to view student classes.</MudAlert>
+    }
+    else if (ErrorMessage is not null)
+    {
+      <MudAlert Severity="Severity.Error">@ErrorMessage</MudAlert>
+    }
+  else if (StudentClasses.Count == 0)
+    {
+      <MudAlert Severity="Severity.Info">You are not enrolled in any classes yet.</MudAlert>
+    }
+    else
+    {
+      <MudGrid>
+  @foreach (var c in StudentClasses)
+        {
+          <MudItem xs="12" sm="6">
+            <MudCard Outlined="true">
+              <MudCardHeader>
+                <CardHeaderContent>
+                  <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.h6">@c.Name</MudText>
+                    <MudChip T="int" Color="Color.Primary" Variant="Variant.Filled" Size="Size.Small">@c.StudentCount students</MudChip>
+                  </MudStack>
+                </CardHeaderContent>
+              </MudCardHeader>
+            </MudCard>
+          </MudItem>
+        }
+      </MudGrid>
+    }
+  </MudStack>
+</MudContainer>
+
+@code {
+  private bool Loading = true;
+  private string? ErrorMessage;
+  private List<ExamClass> StudentClasses = new();
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender) return;
+    await Auth.InitializeAsync();
+    if (!Auth.IsStudent)
+    {
+      Loading = false;
+      StateHasChanged();
+      return;
+    }
+    await LoadClasses();
+  }
+
+  private async Task LoadClasses()
+  {
+    try
+    {
+      Loading = true;
+      StateHasChanged();
+  StudentClasses = await Api.GetMyClassesAsync();
+    }
+    catch (Exception ex)
+    {
+      ErrorMessage = $"Failed to load classes: {ex.Message}";
+    }
+    finally
+    {
+      Loading = false;
+      StateHasChanged();
+    }
+  }
+}

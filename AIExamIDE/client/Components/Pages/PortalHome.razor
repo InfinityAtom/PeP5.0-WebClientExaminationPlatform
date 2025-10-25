@@ -1,0 +1,35 @@
+@page "/"
+@layout PortalLayout
+@rendermode InteractiveServer
+@inject AuthState Auth
+@inject NavigationManager Nav
+
+<MudContainer Class="d-flex justify-center align-center" Style="min-height:60vh;">
+    <MudStack AlignItems="AlignItems.Center" Spacing="2">
+        <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+        <MudText Typo="Typo.subtitle1">Redirecting...</MudText>
+    </MudStack>
+</MudContainer>
+
+@code {
+    private bool _navigated;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _navigated)
+            return;
+
+        await Auth.InitializeAsync();
+
+        string target;
+        if (Auth.IsTeacher)
+            target = "/teacher/dashboard";
+        else if (Auth.IsStudent)
+            target = "/student/dashboard";
+        else
+            target = "/login";
+
+        _navigated = true;
+        Nav.NavigateTo(target);
+    }
+}

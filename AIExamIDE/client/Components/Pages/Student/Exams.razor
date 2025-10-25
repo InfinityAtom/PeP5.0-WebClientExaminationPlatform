@@ -1,0 +1,115 @@
+@page "/student/exams"
+@layout PortalLayout
+@inject AIExamIDE.Services.ApiClient Api
+@inject AuthState Auth
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<MudContainer Class="mt-4" MaxWidth="MaxWidth.ExtraLarge">
+  <MudStack Spacing="3">
+    <MudText Typo="Typo.h5">My Exam Bookings</MudText>
+
+    @if (Loading)
+    {
+      <MudProgressLinear Indeterminate="true" />
+    }
+    else if (ErrorMessage is not null)
+    {
+      <MudAlert Severity="Severity.Error">@ErrorMessage</MudAlert>
+    }
+    else if (!Bookings.Any())
+    {
+      <MudAlert Severity="Severity.Info">You have no exam bookings yet. Go to the Book page to reserve a seat.</MudAlert>
+    }
+    else
+    {
+      <MudTable Items="Bookings" Hover="true" Dense="true">
+        <HeaderContent>
+          <MudTh>Date</MudTh>
+          <MudTh>Title</MudTh>
+          <MudTh>Room</MudTh>
+          <MudTh>Seat</MudTh>
+          <MudTh>Time</MudTh>
+          <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+          <MudTd>@context.Date</MudTd>
+          <MudTd>@(string.IsNullOrEmpty(context.Title) ? "(Untitled Exam)" : context.Title)</MudTd>
+          <MudTd>@context.RoomName</MudTd>
+          <MudTd>@context.SeatId</MudTd>
+          <MudTd>@FormatTimeRange(context.StartTime, context.EndTime)</MudTd>
+          <MudTd>
+            @if (IsToday(context.Date))
+            {
+              <MudButton Color="Color.Primary" Size="Size.Small" Variant="Variant.Filled" OnClick="() => LaunchExam(context)">
+                Enter Exam
+              </MudButton>
+            }
+          </MudTd>
+        </RowTemplate>
+      </MudTable>
+    }
+  </MudStack>
+</MudContainer>
+
+@code {
+  private List<Booking> Bookings = new();
+  private bool Loading = false;
+  private string? ErrorMessage;
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender) return;
+    await Auth.InitializeAsync();
+    if (!Auth.IsStudent)
+    {
+      Nav.NavigateTo("/login");
+      return;
+    }
+    await LoadData();
+    StateHasChanged();
+  }
+
+  private async Task LoadData()
+  {
+    Loading = true;
+    ErrorMessage = null;
+    try
+    {
+      Bookings = await Api.GetMyBookingsAsync();
+      // Order upcoming first then past
+      Bookings = Bookings.OrderByDescending(b => ParseDate(b.Date) >= DateTime.Today)
+                         .ThenBy(b => ParseDate(b.Date))
+                         .ToList();
+    }
+    catch (Exception ex)
+    {
+      ErrorMessage = $"Failed to load bookings: {ex.Message}";
+      Snackbar.Add(ErrorMessage, Severity.Error);
+    }
+    finally
+    {
+      Loading = false;
+    }
+  }
+
+  private DateTime ParseDate(string? date)
+  {
+    if (DateTime.TryParse(date, out var dt)) return dt.Date;
+    return DateTime.MinValue;
+  }
+
+  private bool IsToday(string? date) => ParseDate(date) == DateTime.Today;
+
+  private string FormatTimeRange(string? start, string? end)
+  {
+    if (string.IsNullOrEmpty(start) && string.IsNullOrEmpty(end)) return "-";
+    return $"{start} - {end}".Trim();
+  }
+
+  private void LaunchExam(Booking booking)
+  {
+    // Navigate to root exam page; booking context auto-detected there (Home.razor fetches today's booking)
+    Nav.NavigateTo("/");
+  }
+}

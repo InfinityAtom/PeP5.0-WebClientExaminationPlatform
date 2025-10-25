@@ -115,3 +115,37 @@ main[b-hneu5goues] {
         overflow-y: auto;
     }
 }
+/* _content/AIExamIDE/Components/Layout/PortalLayout.razor.rz.scp.css */
+/* Updated styling for MudBlazor-based PortalLayout */
+
+.portal-title[b-zr0wu30y1w] {
+  font-weight: 600;
+  letter-spacing: .5px;
+}
+
+.portal-drawer[b-zr0wu30y1w] {
+  padding-top: 8px;
+  background: var(--mud-palette-surface);
+  border-right: 1px solid var(--mud-palette-lines-default);
+}
+
+.portal-drawer .mud-navmenu[b-zr0wu30y1w] {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 4px;
+}
+
+.portal-drawer a[b-zr0wu30y1w], .portal-drawer button[b-zr0wu30y1w] {
+  font-size: .75rem;
+}
+
+.portal-main[b-zr0wu30y1w] {
+  background: var(--mud-palette-background);
+  min-height: calc(100vh - 64px);
+}
+
+@media (max-width: 900px) {
+  .portal-drawer[b-zr0wu30y1w] { display: none; }
+  .portal-main[b-zr0wu30y1w] { padding: 0 !important; }
+}

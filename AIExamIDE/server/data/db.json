@@ -1,0 +1,22 @@
+{
+  "users": [],
+  "classes": [],
+  "class_students": [],
+  "exam_rooms": [],
+  "exam_sessions": [],
+  "bookings": [],
+  "submissions": [],
+  "practice_tests": [],
+  "practice_submissions": [],
+  "fallback_exam": null,
+  "counters": {
+    "users": 0,
+    "classes": 0,
+    "exam_rooms": 0,
+    "exam_sessions": 0,
+    "bookings": 0,
+    "submissions": 0,
+    "practice_tests": 0,
+    "practice_submissions": 0
+  }
+}

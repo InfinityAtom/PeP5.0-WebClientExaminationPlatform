@@ -1,0 +1,110 @@
+@page "/teacher/sessions/{SessionId:int}/bookings"
+@rendermode InteractiveServer
+@layout PortalLayout
+@using MudBlazor
+@using AIExamIDE.Models
+@inject AIExamIDE.Services.ApiClient Api
+@inject AIExamIDE.Services.AuthState Auth
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+  <MudStack Spacing="3">
+    <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+      <MudText Typo="Typo.h5">Session Bookings</MudText>
+      <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ArrowBack" OnClick="GoBack">Back</MudButton>
+    </MudStack>
+
+    @if (Loading)
+    {
+      <MudProgressLinear Indeterminate="true" />
+    }
+    else if (ErrorMessage is not null)
+    {
+      <MudAlert Severity="Severity.Error">@ErrorMessage</MudAlert>
+    }
+    else if (Bookings.Count == 0)
+    {
+      <MudAlert Severity="Severity.Info">No bookings for this session yet.</MudAlert>
+    }
+    else
+    {
+      <MudPaper Class="pa-4" Elevation="2">
+        <MudDataGrid T="Booking" Items="Bookings" Dense="true" Hover="true" SortMode="SortMode.Multiple">
+          <Columns>
+            <PropertyColumn Property="x => x.Id" Title="ID" />
+            <TemplateColumn Title="Student">
+              <CellTemplate>
+                @if (!string.IsNullOrEmpty(context.Item.StudentName))
+                {
+                  <MudStack Spacing="0">
+                    <MudText Typo="Typo.caption">@context.Item.StudentName</MudText>
+                    <MudText Typo="Typo.caption" Style="color:#666">@context.Item.StudentEmail</MudText>
+                  </MudStack>
+                }
+                else
+                {
+                  <MudText>Id: @context.Item.StudentId</MudText>
+                }
+              </CellTemplate>
+            </TemplateColumn>
+            <PropertyColumn Property="x => x.SeatName" Title="Seat">
+              <CellTemplate>
+                @(string.IsNullOrEmpty(context.Item.SeatName) ? context.Item.SeatId : context.Item.SeatName)
+              </CellTemplate>
+            </PropertyColumn>
+            <PropertyColumn Property="x => x.Status" Title="Status" />
+            <PropertyColumn Property="x => x.Date" Title="Date" />
+            <PropertyColumn Property="x => x.StartTime" Title="Start" />
+            <PropertyColumn Property="x => x.EndTime" Title="End" />
+          </Columns>
+          <PagerContent>
+            <MudDataGridPager T="Booking" />
+          </PagerContent>
+        </MudDataGrid>
+      </MudPaper>
+    }
+  </MudStack>
+</MudContainer>
+
+@code {
+  [Parameter] public int SessionId { get; set; }
+  private bool Loading = true;
+  private string? ErrorMessage;
+  private List<Booking> Bookings = new();
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender) return;
+    await Auth.InitializeAsync();
+    if (!Auth.IsTeacher)
+    {
+      Nav.NavigateTo("/login");
+      return;
+    }
+    await LoadBookings();
+  }
+
+  private async Task LoadBookings()
+  {
+    try
+    {
+      Loading = true;
+      StateHasChanged();
+      Bookings = await Api.GetSessionBookingsAsync(SessionId);
+    }
+    catch (Exception ex)
+    {
+      ErrorMessage = $"Failed to load bookings: {ex.Message}";
+    }
+    finally
+    {
+      Loading = false;
+      StateHasChanged();
+    }
+  }
+
+  private void GoBack()
+  {
+    Nav.NavigateTo("/teacher/sessions");
+  }
+}

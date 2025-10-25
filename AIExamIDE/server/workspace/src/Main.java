@@ -3,8 +3,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Renewable Energy Grid Management
- * In the domain of Renewable Energy Grid Management, this exam assesses the ability to process and analyze data from various energy generation stations. Students will work with data from solar, wind, and hydroelectric sources to gain insights into their performance. The tasks involve complex data filtering, relationship analysis, and statistical computations to provide a comprehensive understanding of energy output trends.
+ * E-commerce Platform Management
+ * You are developing a comprehensive e-commerce platform management system for a growing online retail company that needs to analyze customer behavior, order patterns, and business performance across multiple dimensions. The system must provide detailed insights into customer segmentation, order fulfillment efficiency, revenue optimization, and strategic business intelligence to support data-driven decision making. This platform serves as the central analytics hub for understanding customer relationships, optimizing inventory management, and identifying growth opportunities in the competitive e-commerce marketplace.
  */
 public class Main {
     public static void main(String[] args) {

@@ -1,10 +1,12 @@
-﻿@page "/"
+﻿@page "/exam"
+@layout MainLayout
 @using AIExamIDE.Services
 @using AIExamIDE.Models
 @using System.Net
 @using System.Text.Json
 @inject ExamState ExamState
 @inject ApiClient ApiClient
+@inject AuthState Auth
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Nav
 @rendermode InteractiveServer
@@ -12,10 +14,6 @@
 
 <PageTitle>PePExam - @FormatTime(ExamState.TimeRemainingSeconds) Remaining</PageTitle>
 
-<MudThemeProvider />
-<MudPopoverProvider />
-<MudDialogProvider />
-<MudSnackbarProvider />
 <FullscreenWarning @bind-ShowWarning="showFullscreenWarning" />
 
 <div class="app-shell">
@@ -710,8 +708,29 @@
         {
             var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to submit? You won't be able to change your code after this.");
             if (!confirmed) return;
+            
             var files = ExamState.GetAllFiles();
-            await ApiClient.SubmitExamAsync(files);
+            
+            // Get current booking if user is a student
+            int? bookingId = null;
+            try
+            {
+                if (Auth.IsStudent)
+                {
+                    var bookings = await ApiClient.GetMyBookingsAsync();
+                    var todayBooking = bookings.FirstOrDefault(b => 
+                        DateTime.TryParse(b.Date, out var bookingDate) && 
+                        bookingDate.Date == DateTime.Today);
+                    bookingId = todayBooking?.Id;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Could not get booking info: {ex.Message}");
+                // Continue without booking - for backwards compatibility
+            }
+            
+            await ApiClient.SubmitExamWithBookingAsync(files, bookingId);
             ExamState.MarkAsSubmitted();
             ExamState.SetConsoleOutput("Exam submitted successfully! Starting evaluation...");
 
@@ -719,7 +738,7 @@
             ExamState.SetEvaluating(true);
             StateHasChanged();
 
-            var evalResult = await ApiClient.EvaluateAsync(files, ExamState.CurrentExam!);
+            var evalResult = await ApiClient.EvaluateSubmissionWithBookingAsync(files, ExamState.CurrentExam!, bookingId);
             ExamState.SetEvaluationResult(evalResult);
             ExamState.SetConsoleOutput($"Evaluation complete. Final grade: {FormatGrade(evalResult.Final_Grade)}. Check details below.");
             Nav.NavigateTo("/results");

@@ -1,0 +1,371 @@
+@page "/teacher/submissions"
+@layout PortalLayout
+@rendermode InteractiveServer
+@using System.Text.Json
+@inject AIExamIDE.Services.ApiClient Api
+@inject AIExamIDE.Services.AuthState Auth
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+  <MudStack Spacing="3">
+    <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+      <MudText Typo="Typo.h4">Student Submissions</MudText>
+      <MudStack Row Spacing="2">
+        <MudSelect T="int?" @bind-Value="SelectedSessionId" Label="Filter by Session" Variant="Variant.Outlined" Clearable="true">
+          <MudSelectItem T="int?" Value="null">All Sessions</MudSelectItem>
+          @foreach (var session in Sessions)
+          {
+            <MudSelectItem T="int?" Value="session.Id">
+              @session.Date - @(string.IsNullOrEmpty(session.Title) ? "Untitled Session" : session.Title)
+            </MudSelectItem>
+          }
+        </MudSelect>
+        <MudIconButton Icon="@Icons.Material.Filled.Refresh" OnClick="LoadData" Color="Color.Primary" />
+      </MudStack>
+    </MudStack>
+
+    @if (Loading)
+    {
+      <MudProgressLinear Indeterminate="true" />
+    }
+    else if (FilteredSubmissions.Any())
+    {
+      <MudDataGrid T="Submission" Items="FilteredSubmissions" Dense="false" Hover="true" 
+                   SortMode="SortMode.Single" Filterable="true" FilterMode="DataGridFilterMode.Simple">
+        <Columns>
+          <PropertyColumn Property="x => x.Id" Title="ID" />
+          <PropertyColumn Property="x => x.StudentName" Title="Student Name" />
+          <PropertyColumn Property="x => x.StudentEmail" Title="Email" />
+          <PropertyColumn Property="x => x.SessionId" Title="Session ID" />
+          <TemplateColumn Title="Grade" Sortable="true" SortBy="@(x => x.GradeFinal ?? 0)">
+            <CellTemplate>
+              @if (context.Item.GradeFinal.HasValue)
+              {
+                <MudChip T="string" Color="GetGradeColor(context.Item.GradeFinal.Value)" Size="Size.Small">
+                  @context.Item.GradeFinal.Value
+                </MudChip>
+              }
+              else
+              {
+                <MudChip T="string" Color="Color.Default" Size="Size.Small">
+                  Ungraded
+                </MudChip>
+              }
+            </CellTemplate>
+          </TemplateColumn>
+          <TemplateColumn Title="Submitted" Sortable="true" SortBy="@(x => ParseCreatedAt(x.CreatedAt))">
+            <CellTemplate>
+              @RenderCreatedAt(context.Item.CreatedAt)
+            </CellTemplate>
+          </TemplateColumn>
+          <TemplateColumn Title="Actions" Sortable="false">
+            <CellTemplate>
+              <MudStack Row Spacing="1">
+                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small" Color="Color.Info" 
+                               OnClick="@(() => ViewSubmission(context.Item))" Title="View Details" />
+                <MudIconButton Icon="@Icons.Material.Filled.Grade" Size="Size.Small" Color="Color.Primary" 
+                               OnClick="@(() => GradeSubmission(context.Item))" Title="Grade/Edit" />
+                @if (!string.IsNullOrEmpty(context.Item.FilesJson))
+                {
+                  <MudIconButton Icon="@Icons.Material.Filled.Download" Size="Size.Small" Color="Color.Secondary" 
+                                 OnClick="@(() => DownloadSubmission(context.Item))" Title="Download Files" />
+                }
+              </MudStack>
+            </CellTemplate>
+          </TemplateColumn>
+        </Columns>
+        <PagerContent>
+          <MudDataGridPager T="Submission" />
+        </PagerContent>
+      </MudDataGrid>
+    }
+    else
+    {
+      <MudAlert Severity="Severity.Info">
+        No submissions found. Students will appear here once they submit their exams.
+      </MudAlert>
+    }
+  </MudStack>
+</MudContainer>
+
+<!-- Grade Adjustment Dialog -->
+<MudDialog @bind-IsVisible="showGradeDialog" Options="new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true }">
+  <DialogContent>
+    @if (SelectedSubmission != null)
+    {
+      <MudStack Spacing="3">
+        <MudText Typo="Typo.h5">Grade Submission - @SelectedSubmission.StudentName</MudText>
+        
+        <!-- Student Info -->
+        <MudCard Outlined="true">
+          <MudCardContent>
+            <MudGrid>
+              <MudItem xs="4">
+                <MudText Typo="Typo.caption">Student</MudText>
+                <MudText Typo="Typo.body1">@SelectedSubmission.StudentName</MudText>
+                <MudText Typo="Typo.body2" Style="color: #666;">@SelectedSubmission.StudentEmail</MudText>
+              </MudItem>
+              <MudItem xs="4">
+                <MudText Typo="Typo.caption">Submission</MudText>
+                <MudText Typo="Typo.body1">#@SelectedSubmission.Id</MudText>
+                <MudText Typo="Typo.body2" Style="color: #666;">@SelectedSubmission.CreatedAt</MudText>
+              </MudItem>
+              <MudItem xs="4">
+                <MudText Typo="Typo.caption">Current Grade</MudText>
+                <MudText Typo="Typo.h6" Style="@($"color: {GetGradeColorHex(SelectedSubmission.GradeFinal ?? 0)}")">
+                  @(SelectedSubmission.GradeFinal?.ToString() ?? "Ungraded")
+                </MudText>
+              </MudItem>
+            </MudGrid>
+          </MudCardContent>
+        </MudCard>
+
+        <!-- Auto Evaluation Results (if available) -->
+        @if (EvaluationData != null)
+        {
+          <MudCard Outlined="true">
+            <MudCardHeader>
+              <CardHeaderContent>
+                <MudText Typo="Typo.h6">Auto-Evaluation Results</MudText>
+              </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+              <MudGrid>
+                <MudItem xs="3">
+                  <MudStack AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.caption">Task 1</MudText>
+                    <MudProgressCircular Value="EvaluationData.Evaluation.Task1.Percentage" Size="Size.Medium" />
+                    <MudText Typo="Typo.body2">@EvaluationData.Evaluation.Task1.Status</MudText>
+                  </MudStack>
+                </MudItem>
+                <MudItem xs="3">
+                  <MudStack AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.caption">Task 2</MudText>
+                    <MudProgressCircular Value="EvaluationData.Evaluation.Task2.Percentage" Size="Size.Medium" />
+                    <MudText Typo="Typo.body2">@EvaluationData.Evaluation.Task2.Status</MudText>
+                  </MudStack>
+                </MudItem>
+                <MudItem xs="3">
+                  <MudStack AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.caption">Task 3</MudText>
+                    <MudProgressCircular Value="EvaluationData.Evaluation.Task3.Percentage" Size="Size.Medium" />
+                    <MudText Typo="Typo.body2">@EvaluationData.Evaluation.Task3.Status</MudText>
+                  </MudStack>
+                </MudItem>
+                <MudItem xs="3">
+                  <MudStack AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.caption">Task 4</MudText>
+                    <MudProgressCircular Value="EvaluationData.Evaluation.Task4.Percentage" Size="Size.Medium" />
+                    <MudText Typo="Typo.body2">@EvaluationData.Evaluation.Task4.Status</MudText>
+                  </MudStack>
+                </MudItem>
+              </MudGrid>
+            </MudCardContent>
+          </MudCard>
+        }
+
+        <!-- Grade Adjustment -->
+        <MudCard Outlined="true">
+          <MudCardHeader>
+            <CardHeaderContent>
+              <MudText Typo="Typo.h6">Grade Adjustment</MudText>
+            </CardHeaderContent>
+          </MudCardHeader>
+          <MudCardContent>
+            <MudStack Spacing="2">
+              <MudNumericField @bind-Value="NewGrade" Label="Final Grade (2-10)" Min="2" Max="10" />
+              <MudTextField @bind-Value="FeedbackNotes" Label="Feedback/Notes" Lines="3" Variant="Variant.Outlined" />
+            </MudStack>
+          </MudCardContent>
+        </MudCard>
+      </MudStack>
+    }
+  </DialogContent>
+  <DialogActions>
+    <MudButton Color="Color.Secondary" OnClick="CloseGradeDialog">Cancel</MudButton>
+    <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SaveGrade" StartIcon="@Icons.Material.Filled.Save">
+      Save Grade
+    </MudButton>
+  </DialogActions>
+</MudDialog>
+
+@code {
+  private List<Submission> SubmissionsList = new();
+  private List<ExamSession> Sessions = new();
+  private bool Loading = false;
+  private int? SelectedSessionId = null;
+
+  // Grading dialog state
+  private bool showGradeDialog = false;
+  private Submission? SelectedSubmission = null;
+  private int NewGrade = 2;
+  private string FeedbackNotes = "";
+  private EvaluationResult? EvaluationData = null;
+
+  private IEnumerable<Submission> FilteredSubmissions => 
+    SelectedSessionId.HasValue 
+      ? SubmissionsList.Where(s => s.SessionId == SelectedSessionId.Value)
+      : SubmissionsList;
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender) return;
+    await LoadData();
+    StateHasChanged();
+  }
+
+  private async Task LoadData()
+  {
+    Loading = true;
+    try
+    {
+      // Load submissions and sessions in parallel
+      var submissionsTask = Api.GetSubmissionsAsync();
+      var sessionsTask = Api.GetMySessionsAsync();
+      
+      await Task.WhenAll(submissionsTask, sessionsTask);
+      
+      SubmissionsList = submissionsTask.Result;
+      Sessions = sessionsTask.Result;
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error loading data: {ex.Message}", Severity.Error);
+    }
+    finally
+    {
+      Loading = false;
+    }
+  }
+
+  private Color GetGradeColor(int grade)
+  {
+    return grade switch
+    {
+      >= 9 => Color.Success,
+      >= 7 => Color.Info,
+      >= 5 => Color.Warning,
+      _ => Color.Error
+    };
+  }
+
+  private DateTime ParseCreatedAt(string? value)
+  {
+    if (string.IsNullOrWhiteSpace(value)) return DateTime.MinValue;
+    if (DateTime.TryParse(value, out var dt)) return dt;
+    return DateTime.MinValue;
+  }
+
+  private RenderFragment RenderCreatedAt(string? value) => builder =>
+  {
+    var dt = ParseCreatedAt(value);
+    var display = dt == DateTime.MinValue ? "-" : dt.ToString("yyyy-MM-dd HH:mm");
+    builder.AddContent(0, display);
+  };
+
+  private string GetGradeColorHex(int grade)
+  {
+    return grade switch
+    {
+      >= 9 => "#4caf50",
+      >= 7 => "#2196f3", 
+      >= 5 => "#ff9800",
+      _ => "#f44336"
+    };
+  }
+
+  private async Task ViewSubmission(Submission submission)
+  {
+    try
+    {
+      var latest = await Api.GetSubmissionAsync(submission.Id) ?? submission;
+      SelectedSubmission = latest;
+
+      EvaluationData = null;
+      if (!string.IsNullOrWhiteSpace(latest.EvaluationJson))
+      {
+        try
+        {
+          EvaluationData = JsonSerializer.Deserialize<EvaluationResult>(latest.EvaluationJson!, new JsonSerializerOptions
+          {
+            PropertyNameCaseInsensitive = true
+          });
+        }
+        catch
+        {
+          EvaluationData = null;
+        }
+      }
+
+      NewGrade = latest.GradeFinal ?? 2;
+      FeedbackNotes = "";
+      showGradeDialog = true;
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error loading submission details: {ex.Message}", Severity.Error);
+    }
+  }
+
+  private async Task GradeSubmission(Submission submission)
+  {
+    await ViewSubmission(submission);
+  }
+
+  private async Task SaveGrade()
+  {
+    if (SelectedSubmission == null) return;
+
+    try
+    {
+      var feedbackPayload = string.IsNullOrWhiteSpace(FeedbackNotes) ? null : new { notes = FeedbackNotes };
+      var updated = await Api.UpdateSubmissionAsync(SelectedSubmission.Id, NewGrade, null, feedbackPayload);
+
+      // Sync local cache
+      var index = SubmissionsList.FindIndex(s => s.Id == updated.Id);
+      if (index >= 0)
+      {
+        SubmissionsList[index] = updated;
+      }
+
+      SelectedSubmission = updated;
+      NewGrade = updated.GradeFinal ?? NewGrade;
+
+      Snackbar.Add("Grade updated successfully!", Severity.Success);
+      CloseGradeDialog();
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error updating grade: {ex.Message}", Severity.Error);
+    }
+  }
+
+  private void CloseGradeDialog()
+  {
+    showGradeDialog = false;
+    SelectedSubmission = null;
+    EvaluationData = null;
+    NewGrade = 2;
+    FeedbackNotes = "";
+  }
+
+  private async Task DownloadSubmission(Submission submission)
+  {
+    try
+    {
+      if (string.IsNullOrEmpty(submission.FilesJson))
+      {
+        Snackbar.Add("No files available for download", Severity.Warning);
+        return;
+      }
+
+      // For now, just show a message - full file download would need additional API endpoint
+      Snackbar.Add("File download feature coming soon", Severity.Info);
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Error downloading files: {ex.Message}", Severity.Error);
+    }
+  }
+}

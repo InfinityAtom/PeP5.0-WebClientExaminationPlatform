@@ -12,89 +12,193 @@ build_property.EnforceExtendedAnalyzerRules =
 build_property._SupportedPlatformList = Linux,macOS,Windows
 build_property.RootNamespace = AIExamIDE
 build_property.RootNamespace = AIExamIDE
-build_property.ProjectDir = C:\Users\drago\OneDrive\Documents\PeP5\PeP5.0-WebClientExaminationPlatform\AIExamIDE\client\
+build_property.ProjectDir = C:\Users\z005612k\Desktop\PeP\V5Old\AIExamIDE\client\
 build_property.EnableComHosting = 
 build_property.EnableGeneratedComInterfaceComImportInterop = 
 build_property.RazorLangVersion = 9.0
 build_property.SupportLocalizedComponentNames = 
 build_property.GenerateRazorMetadataSourceChecksumAttributes = 
-build_property.MSBuildProjectDirectory = C:\Users\drago\OneDrive\Documents\PeP5\PeP5.0-WebClientExaminationPlatform\AIExamIDE\client
+build_property.MSBuildProjectDirectory = C:\Users\z005612k\Desktop\PeP\V5Old\AIExamIDE\client
 build_property._RazorSourceGeneratorDebug = 
 build_property.EffectiveAnalysisLevelStyle = 9.0
 build_property.EnableCodeStyleSeverity = 
 
-[C:/Users/drago/OneDrive/Documents/PeP5/PeP5.0-WebClientExaminationPlatform/AIExamIDE/client/Components/App.razor]
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/App.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xBcHAucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/drago/OneDrive/Documents/PeP5/PeP5.0-WebClientExaminationPlatform/AIExamIDE/client/Components/Dialogs/AddFileDialog.razor]
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Dialogs/AddFileDialog.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xEaWFsb2dzXEFkZEZpbGVEaWFsb2cucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/drago/OneDrive/Documents/PeP5/PeP5.0-WebClientExaminationPlatform/AIExamIDE/client/Components/Dialogs/DeleteFileDialog.razor]
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Dialogs/ClassEditDialog.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xEaWFsb2dzXENsYXNzRWRpdERpYWxvZy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Dialogs/DeleteFileDialog.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xEaWFsb2dzXERlbGV0ZUZpbGVEaWFsb2cucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/drago/OneDrive/Documents/PeP5/PeP5.0-WebClientExaminationPlatform/AIExamIDE/client/Components/Dialogs/RenameFileDialog.razor]
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Dialogs/DeleteSessionDialog.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xEaWFsb2dzXERlbGV0ZVNlc3Npb25EaWFsb2cucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Dialogs/RenameFileDialog.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xEaWFsb2dzXFJlbmFtZUZpbGVEaWFsb2cucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/drago/OneDrive/Documents/PeP5/PeP5.0-WebClientExaminationPlatform/AIExamIDE/client/Components/Pages/Counter.razor]
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Auth/Login.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xBdXRoXExvZ2luLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Auth/Register.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xBdXRoXFJlZ2lzdGVyLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Counter.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xDb3VudGVyLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/drago/OneDrive/Documents/PeP5/PeP5.0-WebClientExaminationPlatform/AIExamIDE/client/Components/Pages/Error.razor]
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Error.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xFcnJvci5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/drago/OneDrive/Documents/PeP5/PeP5.0-WebClientExaminationPlatform/AIExamIDE/client/Components/Pages/Home.razor]
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Home.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xIb21lLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/drago/OneDrive/Documents/PeP5/PeP5.0-WebClientExaminationPlatform/AIExamIDE/client/Components/Pages/Results.razor]
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/PortalHome.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQb3J0YWxIb21lLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Results.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xSZXN1bHRzLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/drago/OneDrive/Documents/PeP5/PeP5.0-WebClientExaminationPlatform/AIExamIDE/client/Components/Pages/Weather.razor]
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Student/Book.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xTdHVkZW50XEJvb2sucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Student/Classes.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xTdHVkZW50XENsYXNzZXMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Student/Dashboard.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xTdHVkZW50XERhc2hib2FyZC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Student/Exams.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xTdHVkZW50XEV4YW1zLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Student/Practice.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xTdHVkZW50XFByYWN0aWNlLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Student/PracticeTests.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xTdHVkZW50XFByYWN0aWNlVGVzdHMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Teacher/Classes.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xUZWFjaGVyXENsYXNzZXMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Teacher/ComputerConfiguration.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xUZWFjaGVyXENvbXB1dGVyQ29uZmlndXJhdGlvbi5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Teacher/CreatePracticeTest.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xUZWFjaGVyXENyZWF0ZVByYWN0aWNlVGVzdC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Teacher/Dashboard.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xUZWFjaGVyXERhc2hib2FyZC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Teacher/EditPracticeTest.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xUZWFjaGVyXEVkaXRQcmFjdGljZVRlc3QucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Teacher/FallbackExam.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xUZWFjaGVyXEZhbGxiYWNrRXhhbS5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Teacher/JsonPreviewDialog.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xUZWFjaGVyXEpzb25QcmV2aWV3RGlhbG9nLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Teacher/Practice.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xUZWFjaGVyXFByYWN0aWNlLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Teacher/PracticeTests.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xUZWFjaGVyXFByYWN0aWNlVGVzdHMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Teacher/Rooms.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xUZWFjaGVyXFJvb21zLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Teacher/SessionBookings.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xUZWFjaGVyXFNlc3Npb25Cb29raW5ncy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Teacher/Sessions.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xUZWFjaGVyXFNlc3Npb25zLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Teacher/Submissions.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xUZWFjaGVyXFN1Ym1pc3Npb25zLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Pages/Weather.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xXZWF0aGVyLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/drago/OneDrive/Documents/PeP5/PeP5.0-WebClientExaminationPlatform/AIExamIDE/client/Components/Routes.razor]
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Routes.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xSb3V0ZXMucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/drago/OneDrive/Documents/PeP5/PeP5.0-WebClientExaminationPlatform/AIExamIDE/client/Components/Shared/ConsoleOutput.razor]
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Shared/AuthorizeView.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcQXV0aG9yaXplVmlldy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Shared/ConsoleOutput.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcQ29uc29sZU91dHB1dC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/drago/OneDrive/Documents/PeP5/PeP5.0-WebClientExaminationPlatform/AIExamIDE/client/Components/Shared/EditorTabs.razor]
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Shared/EditorTabs.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcRWRpdG9yVGFicy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/drago/OneDrive/Documents/PeP5/PeP5.0-WebClientExaminationPlatform/AIExamIDE/client/Components/Shared/FullscreenWarning.razor]
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Shared/FullscreenWarning.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcRnVsbHNjcmVlbldhcm5pbmcucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/drago/OneDrive/Documents/PeP5/PeP5.0-WebClientExaminationPlatform/AIExamIDE/client/Components/Shared/IntegrityBar.razor]
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Shared/IntegrityBar.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcSW50ZWdyaXR5QmFyLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/drago/OneDrive/Documents/PeP5/PeP5.0-WebClientExaminationPlatform/AIExamIDE/client/Components/Shared/SolutionExplorer.razor]
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Shared/SolutionExplorer.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcU29sdXRpb25FeHBsb3Jlci5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/drago/OneDrive/Documents/PeP5/PeP5.0-WebClientExaminationPlatform/AIExamIDE/client/Components/Shared/TaskPanel.razor]
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Shared/TaskPanel.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcVGFza1BhbmVsLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/drago/OneDrive/Documents/PeP5/PeP5.0-WebClientExaminationPlatform/AIExamIDE/client/Components/_Imports.razor]
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/_Imports.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xfSW1wb3J0cy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/drago/OneDrive/Documents/PeP5/PeP5.0-WebClientExaminationPlatform/AIExamIDE/client/Components/Layout/MainLayout.razor]
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Layout/MainLayout.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcTWFpbkxheW91dC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = b-hneu5goues
 
-[C:/Users/drago/OneDrive/Documents/PeP5/PeP5.0-WebClientExaminationPlatform/AIExamIDE/client/Components/Layout/NavMenu.razor]
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Layout/NavMenu.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcTmF2TWVudS5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = b-48i4iflwng
+
+[C:/Users/z005612k/Desktop/PeP/V5Old/AIExamIDE/client/Components/Layout/PortalLayout.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcUG9ydGFsTGF5b3V0LnJhem9y
+build_metadata.AdditionalFiles.CssScope = b-zr0wu30y1w

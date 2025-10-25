@@ -1,0 +1,190 @@
+@page "/teacher/dashboard"
+@rendermode InteractiveServer
+@layout PortalLayout
+
+@using MudBlazor
+@inject ApiClient Api
+@inject NavigationManager Nav
+@inject AuthState Auth
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudStack Spacing="2">
+        <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+            <MudText Typo="Typo.h4">Teacher Dashboard</MudText>
+            <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.Logout" OnClick="Logout">
+                Logout
+            </MudButton>
+        </MudStack>
+
+        @if (_loading)
+        {
+            <MudProgressCircular Indeterminate="true" Class="mt-4" />
+        }
+        else if (!string.IsNullOrEmpty(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else if (Report is not null)
+        {
+            <MudGrid Class="mt-2">
+                <MudItem xs="12" sm="6" md="4">
+                    <MudCard Class="pa-4" Style="height:100%">
+                        <MudCardContent>
+                            <MudIcon Icon="@Icons.Material.Filled.EventNote" Color="Color.Primary" Size="Size.Large" />
+                            <MudText Typo="Typo.h6" Class="mt-2">Manage Sessions</MudText>
+                            <MudText Typo="Typo.body2" Class="mt-1">
+                                Total sessions: @Report.Totals.Sessions<br />
+                                Upcoming sessions: @Report.Totals.UpcomingSessions
+                            </MudText>
+                        </MudCardContent>
+                        <MudCardActions>
+                            <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="@(() => Nav.NavigateTo("/teacher/sessions"))">
+                                Go to Sessions
+                            </MudButton>
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="4">
+                    <MudCard Class="pa-4" Style="height:100%">
+                        <MudCardContent>
+                            <MudIcon Icon="@Icons.Material.Filled.MeetingRoom" Color="Color.Secondary" Size="Size.Large" />
+                            <MudText Typo="Typo.h6" Class="mt-2">Manage Rooms</MudText>
+                            <MudText Typo="Typo.body2" Class="mt-1">
+                                Rooms configured: @Report.Totals.Rooms
+                            </MudText>
+                        </MudCardContent>
+                        <MudCardActions>
+                            <MudButton Color="Color.Secondary" Variant="Variant.Filled" OnClick="@(() => Nav.NavigateTo("/teacher/rooms"))">
+                                Manage Rooms
+                            </MudButton>
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="4">
+                    <MudCard Class="pa-4" Style="height:100%">
+                        <MudCardContent>
+                            <MudIcon Icon="@Icons.Material.Filled.Assignment" Color="Color.Info" Size="Size.Large" />
+                            <MudText Typo="Typo.h6" Class="mt-2">Submissions</MudText>
+                            <MudText Typo="Typo.body2" Class="mt-1">
+                                Total submissions: @Report.Totals.Submissions<br />
+                                Average grade: @(Report.Averages.FinalGrade?.ToString() ?? "-")
+                            </MudText>
+                        </MudCardContent>
+                        <MudCardActions>
+                            <MudButton Color="Color.Info" Variant="Variant.Filled" OnClick="@(() => Nav.NavigateTo("/teacher/submissions"))">
+                                Review Submissions
+                            </MudButton>
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="4">
+                    <MudCard Class="pa-4" Style="height:100%">
+                        <MudCardContent>
+                            <MudIcon Icon="@Icons.Material.Filled.Groups" Color="Color.Success" Size="Size.Large" />
+                            <MudText Typo="Typo.h6" Class="mt-2">Classes</MudText>
+                            <MudText Typo="Typo.body2" Class="mt-1">
+                                Classes managed: @_metrics.Classes
+                            </MudText>
+                        </MudCardContent>
+                        <MudCardActions>
+                            <MudButton Color="Color.Success" Variant="Variant.Filled" OnClick="@(() => Nav.NavigateTo("/teacher/classes"))">
+                                Manage Classes
+                            </MudButton>
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="4">
+                    <MudCard Class="pa-4" Style="height:100%">
+                        <MudCardContent>
+                            <MudIcon Icon="@Icons.Material.Filled.Rule" Color="Color.Warning" Size="Size.Large" />
+                            <MudText Typo="Typo.h6" Class="mt-2">Practice Tests</MudText>
+                            <MudText Typo="Typo.body2" Class="mt-1">
+                                Tests created: @_metrics.PracticeTests
+                            </MudText>
+                        </MudCardContent>
+                        <MudCardActions>
+                            <MudButton Color="Color.Warning" Variant="Variant.Filled" OnClick="@(() => Nav.NavigateTo("/teacher/practice-tests"))">
+                                Manage Tests
+                            </MudButton>
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="4">
+                    <MudCard Class="pa-4" Style="height:100%">
+                        <MudCardContent>
+                            <MudIcon Icon="@Icons.Material.Filled.Build" Color="Color.Success" Size="Size.Large" />
+                            <MudText Typo="Typo.h6" Class="mt-2">Fallback Exam</MudText>
+                            <MudText Typo="Typo.body2" Class="mt-1">
+                                Configure and update the fallback exam used when AI generation is unavailable.
+                            </MudText>
+                        </MudCardContent>
+                        <MudCardActions>
+                            <MudButton Color="Color.Success" Variant="Variant.Filled" OnClick="@(() => Nav.NavigateTo("/teacher/fallback"))">
+                                Edit Fallback Exam
+                            </MudButton>
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+            </MudGrid>
+        }
+    </MudStack>
+</MudContainer>
+
+@code {
+    private TeacherReport? Report;
+    private TeacherDashboardMetrics _metrics = new(0, 0);
+    private string? _error;
+    private bool _loading = true;
+    private bool _initialized;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _initialized) return;
+
+        await Auth.InitializeAsync(async () =>
+        {
+            try { return await Api.GetCurrentUserAsync(); }
+            catch { return null; }
+        });
+
+        if (!Auth.IsTeacher)
+        {
+            Nav.NavigateTo("/login", forceLoad: true);
+            return;
+        }
+
+        try
+        {
+            var reportTask = Api.GetReportsAsync();
+            var classesTask = Api.GetClassesAsync();
+            var testsTask = Api.GetPracticeTestsAsync();
+
+            await Task.WhenAll(reportTask, classesTask, testsTask);
+
+            Report = reportTask.Result;
+            _metrics = new TeacherDashboardMetrics(classesTask.Result.Count, testsTask.Result.Count);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _initialized = true;
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Logout()
+    {
+        await Auth.LogoutAsync();
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
+
+    private readonly record struct TeacherDashboardMetrics(int Classes, int PracticeTests);
+}

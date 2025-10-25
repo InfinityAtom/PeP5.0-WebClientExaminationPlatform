@@ -1,0 +1,353 @@
+@page "/teacher/computers"
+@layout PortalLayout
+@rendermode InteractiveServer
+@using MudBlazor
+@inject AIExamIDE.Services.ApiClient Api
+@inject AIExamIDE.Services.AuthState Auth
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+  <MudStack Spacing="4">
+    <MudPaper Class="pa-4" Elevation="2" Style="border-radius: 12px; text-align: center;">
+      <MudStack AlignItems="AlignItems.Center" Spacing="2">
+        <MudIcon Icon="@Icons.Material.Filled.Computer" Color="Color.Primary" Style="font-size: 2rem;" />
+        <MudText Typo="Typo.h4" Color="Color.Primary" Style="font-weight: 600;">Exam Room Computers</MudText>
+      </MudStack>
+    </MudPaper>
+    
+    <MudPaper Class="pa-4" Elevation="3" Style="border-radius: 12px; border: 1px solid var(--mud-palette-divider);">
+      <MudStack Spacing="4">
+        <!-- Room Selection Section -->
+        <MudPaper Class="pa-4" Elevation="1" Style="background: var(--mud-palette-surface); border-radius: 12px; border: 1px solid var(--mud-palette-primary-lighten);">
+          <MudStack Row Spacing="3" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+            <MudStack Row Spacing="3" AlignItems="AlignItems.Center">
+              <MudIcon Icon="@Icons.Material.Filled.MeetingRoom" Color="Color.Primary" Style="font-size: 1.5rem;" />
+              <MudSelect T="int" Label="Select Exam Room" @bind-Value="SelectedRoomId" Variant="Variant.Outlined" Style="min-width:320px;" AdornmentIcon="@Icons.Material.Filled.School" Adornment="Adornment.Start">
+                @foreach (var r in Rooms)
+                {
+                  <MudSelectItem T="int" Value="@r.Id">@r.Name</MudSelectItem>
+                }
+              </MudSelect>
+              <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" Disabled="@LoadRoomDisabled" OnClick="LoadRoom" StartIcon="@Icons.Material.Filled.Refresh" Style="border-radius: 8px; min-width: 120px;">
+                @if (Loading)
+                {
+                  <MudProgressCircular Color="Color.Surface" Size="Size.Small" Indeterminate="true" />
+                }
+                else
+                {
+                  <span>Load Room</span>
+                }
+              </MudButton>
+            </MudStack>
+            
+            <MudTooltip Text="Unsaved changes will be lost if you reload the room." Placement="Placement.Left">
+              <MudChip T="string" Icon="@Icons.Material.Filled.Info" Color="Color.Info" Variant="Variant.Filled" Size="Size.Medium" Style="border-radius: 20px;">Reload Warning</MudChip>
+            </MudTooltip>
+          </MudStack>
+        </MudPaper>
+
+        <!-- Search Section -->
+        @if (ActiveSeatMap is not null)
+        {
+          <MudPaper Class="pa-3" Elevation="1" Style="background: var(--mud-palette-surface); border-radius: 12px; border: 1px solid var(--mud-palette-secondary-lighten);">
+            <MudStack Row Spacing="3" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+              <MudStack Row Spacing="2" AlignItems="AlignItems.Center">
+                <MudIcon Icon="@Icons.Material.Filled.Search" Color="Color.Secondary" Style="font-size: 1.5rem;" />
+                <MudTextField @bind-Value="Search" Label="Search Computers" Placeholder="Type computer name..." Immediate="true" DebounceInterval="300" Variant="Variant.Outlined" Style="min-width:350px;" Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.FilterList" />
+              </MudStack>
+              
+              <MudStack Row Spacing="2">
+                <MudChip T="string" Icon="@Icons.Material.Filled.Computer" Color="Color.Default" Variant="Variant.Text" Size="Size.Medium">
+                  @FilteredDesks.Count() of @ActiveSeatMap.Desks.Count computers
+                </MudChip>
+                <MudButton Variant="Variant.Text" Color="Color.Secondary" Disabled="@string.IsNullOrWhiteSpace(Search)" OnClick="ClearSearch" StartIcon="@Icons.Material.Filled.Clear" Style="border-radius: 8px;">
+                  Clear
+                </MudButton>
+              </MudStack>
+            </MudStack>
+          </MudPaper>
+        }
+
+        @if (Loading)
+        {
+          <MudPaper Class="pa-4" Elevation="1" Style="border-radius: 8px;">
+            <MudStack AlignItems="AlignItems.Center" Spacing="2">
+              <MudProgressCircular Color="Color.Primary" Size="Size.Medium" Indeterminate="true" />
+              <MudText Typo="Typo.body1" Color="Color.Secondary">Loading room data...</MudText>
+            </MudStack>
+          </MudPaper>
+        }
+        else if (ActiveSeatMap is not null && FilteredDesks.Any())
+        {
+          <MudGrid GutterSize="GutterSize.Medium">
+            @foreach (var d in FilteredDesks)
+            {
+              <MudItem xs="12" sm="6" md="4" lg="3">
+                <MudCard Class="@($"mb-3 {(IsDeskDirty(d.Id) ? "mud-elevation-8" : "mud-elevation-4")}")" Style="@($"border-radius: 12px; transition: all 0.3s ease; {(IsDeskDirty(d.Id) ? "border: 2px solid var(--mud-palette-warning);" : "border: 1px solid var(--mud-palette-divider);")}")">
+                  <MudCardHeader Style="background: linear-gradient(90deg, var(--mud-palette-primary-lighten) 0%, var(--mud-palette-secondary-lighten) 100%); border-radius: 12px 12px 0 0;">
+                    <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                      <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                        <MudAvatar Color="Color.Primary" Variant="Variant.Filled" Style="background: rgba(255,255,255,0.2);">
+                          <MudIcon Icon="@Icons.Material.Filled.Computer" />
+                        </MudAvatar>
+                        <MudStack Spacing="0">
+                          <MudText Typo="Typo.subtitle1" Style="color: white; font-weight: 600;">@d.Name</MudText>
+                          @if (IsDeskDirty(d.Id))
+                          {
+                            <MudChip T="string" Icon="@Icons.Material.Filled.Edit" Color="Color.Warning" Size="Size.Small" Variant="Variant.Filled" Style="background: rgba(255,255,255,0.9); color: var(--mud-palette-text-primary);">Modified</MudChip>
+                          }
+                        </MudStack>
+                      </MudStack>
+                      <MudChip T="string" Icon="@(string.IsNullOrWhiteSpace(d.Ip) ? Icons.Material.Filled.SignalWifiOff : Icons.Material.Filled.Wifi)" Color="@(string.IsNullOrWhiteSpace(d.Ip) ? Color.Default : Color.Success)" Variant="Variant.Filled" Size="Size.Medium" Style="background: rgba(255,255,255,0.9); color: var(--mud-palette-text-primary); font-weight: 500;">@(d.Ip ?? "No IP")</MudChip>
+                    </MudStack>
+                  </MudCardHeader>
+                  <MudCardContent Class="pa-4">
+                    <MudStack Spacing="3">
+                      <MudPaper Class="pa-3" Elevation="0" Style="background: var(--mud-palette-action-hover); border-radius: 8px; border-left: 4px solid var(--mud-palette-primary);">
+                        <MudStack Spacing="2">
+                          <MudTextField Label="Name" @bind-Value="d.Name" Variant="Variant.Outlined" OnBlur="() => MarkDeskDirty(d.Id)" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Label" AdornmentColor="Color.Primary" />
+                          <MudTextField Label="Hostname" @bind-Value="d.Hostname" Variant="Variant.Outlined" OnBlur="() => MarkDeskDirty(d.Id)" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Dns" AdornmentColor="Color.Secondary" />
+                          <MudTextField Label="IP Address" @bind-Value="d.Ip" Variant="Variant.Outlined" Placeholder="192.168.x.x" OnBlur="() => MarkDeskDirty(d.Id)" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Public" AdornmentColor="Color.Tertiary" />
+                        </MudStack>
+                      </MudPaper>
+                      
+                      <MudExpansionPanels Elevation="1" Class="mt-2" Style="border-radius: 8px;">
+                        <MudExpansionPanel Text="Position Coordinates" Icon="@Icons.Material.Filled.GridOn" Style="background: var(--mud-palette-surface);">
+                          <MudPaper Class="pa-3" Elevation="0" Style="background: var(--mud-palette-action-hover); border-radius: 6px;">
+                            <MudStack Row Spacing="2" AlignItems="AlignItems.Center">
+                              <MudTextField T="int" Label="X Position" @bind-Value="d.X" Variant="Variant.Outlined" Style="width:120px;" OnBlur="() => MarkDeskDirty(d.Id)" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.ArrowRightAlt" AdornmentColor="Color.Info" />
+                              <MudTextField T="int" Label="Y Position" @bind-Value="d.Y" Variant="Variant.Outlined" Style="width:120px;" OnBlur="() => MarkDeskDirty(d.Id)" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.ArrowDownward" AdornmentColor="Color.Info" />
+                            </MudStack>
+                          </MudPaper>
+                        </MudExpansionPanel>
+                      </MudExpansionPanels>
+                    </MudStack>
+                  </MudCardContent>
+                  <MudCardActions Class="pa-4" Style="background: var(--mud-palette-action-hover); border-radius: 0 0 12px 12px;">
+                    <MudStack Row Spacing="2" Justify="Justify.FlexEnd" Style="width: 100%;">
+                      <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Medium" Disabled="@(!IsDeskDirty(d.Id) || Saving || !IsAllValid())" OnClick="() => SaveDesk(d)" StartIcon="@Icons.Material.Filled.Save" Style="border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); font-weight: 600;">
+                        @if (Saving) 
+                        {
+                          <MudProgressCircular Color="Color.Surface" Size="Size.Small" Indeterminate="true" />
+                        }
+                        else
+                        {
+                          <span>Save</span>
+                        }
+                      </MudButton>
+                      <MudButton Variant="Variant.Outlined" Color="Color.Warning" Size="Size.Medium" Disabled="@(!IsDeskDirty(d.Id) || Saving)" OnClick="() => DiscardDeskChanges(d.Id)" StartIcon="@Icons.Material.Filled.Restore" Style="border-radius: 8px; border-width: 2px; font-weight: 600;">Discard</MudButton>
+                    </MudStack>
+                  </MudCardActions>
+                </MudCard>
+              </MudItem>
+            }
+          </MudGrid>
+        }
+        else if (SelectedRoomId != 0)
+        {
+          <MudPaper Class="pa-6" Elevation="2" Style="border-radius: 12px; text-align: center;">
+            <MudStack AlignItems="AlignItems.Center" Spacing="3">
+              <MudIcon Icon="@Icons.Material.Filled.EventSeat" Color="Color.Info" Style="font-size: 4rem;" />
+              <MudText Typo="Typo.h6" Color="Color.Info" Style="font-weight: 600;">No Computers Found</MudText>
+              <MudText Typo="Typo.body1" Color="Color.Secondary">This room doesn't have any configured desks yet.</MudText>
+            </MudStack>
+          </MudPaper>
+        }
+        else
+        {
+          <MudPaper Class="pa-6" Elevation="2" Style="border-radius: 12px; text-align: center;">
+            <MudStack AlignItems="AlignItems.Center" Spacing="3">
+              <MudIcon Icon="@Icons.Material.Filled.MeetingRoom" Color="Color.Secondary" Style="font-size: 4rem;" />
+              <MudText Typo="Typo.h6" Color="Color.Secondary" Style="font-weight: 600;">Select a Room</MudText>
+              <MudText Typo="Typo.body1" Color="Color.Secondary">Choose an exam room to view and configure its computers.</MudText>
+            </MudStack>
+          </MudPaper>
+        }
+      </MudStack>
+    </MudPaper>
+  </MudStack>
+</MudContainer>
+
+@code {
+  private List<RoomDto> Rooms = new();
+  private int SelectedRoomId = 0;
+  private bool Loading = false;
+  private Models.SeatMap? ActiveSeatMap;
+  private string Search = string.Empty;
+  private bool Saving = false;
+  private bool Dirty = false;
+  private HashSet<string> DirtyDesks = new();
+  private Dictionary<string, Models.Desk> OriginalDeskSnapshots = new();
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender) return;
+    await Auth.InitializeAsync();
+    if (!Auth.IsTeacher)
+    {
+      Nav.NavigateTo("/login");
+      return;
+    }
+  await LoadRooms();
+    StateHasChanged();
+  }
+
+  private async Task LoadRooms()
+  {
+    try
+    {
+      var http = new HttpClient { BaseAddress = ApiBase() };
+      if (!string.IsNullOrEmpty(Auth.Token)) http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", Auth.Token);
+      var json = await http.GetStringAsync("/api/teacher/rooms");
+      var list = System.Text.Json.JsonSerializer.Deserialize<List<RoomDto>>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+      Rooms = list.OrderBy(r => r.Name).ToList();
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Failed to load rooms: {ex.Message}", Severity.Error);
+    }
+  }
+
+  private async Task LoadRoom()
+  {
+    if (SelectedRoomId == 0) return;
+    Loading = true;
+    try
+    {
+      var http = new HttpClient { BaseAddress = ApiBase() };
+      if (!string.IsNullOrEmpty(Auth.Token)) http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", Auth.Token);
+      var json = await http.GetStringAsync($"/api/teacher/rooms/{SelectedRoomId}");
+      var room = System.Text.Json.JsonSerializer.Deserialize<RoomDto>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+      ActiveSeatMap = null;
+      if (room?.Seatmap is not null)
+      {
+        ActiveSeatMap = room.Seatmap;
+        // capture snapshots for discard
+        OriginalDeskSnapshots = ActiveSeatMap.Desks.ToDictionary(d => d.Id, d => CloneDesk(d));
+      }
+      Dirty = false;
+      DirtyDesks.Clear();
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Failed to load room: {ex.Message}", Severity.Error);
+    }
+    finally
+    {
+      Loading = false;
+    }
+  }
+
+  private Uri ApiBase() => new Uri(Nav.BaseUri.TrimEnd('/'));
+
+  private bool LoadRoomDisabled => SelectedRoomId == 0 || Loading;
+
+  private bool ValidIp(string ip)
+  {
+    if (string.IsNullOrWhiteSpace(ip)) return true; // allow blank
+    var parts = ip.Split('.', StringSplitOptions.RemoveEmptyEntries);
+    if (parts.Length != 4) return false;
+    foreach (var p in parts)
+    {
+      if (!int.TryParse(p, out var v)) return false;
+      if (v < 0 || v > 255) return false;
+    }
+    return true;
+  }
+
+  private async Task SaveDesk(Models.Desk desk)
+  {
+    if (ActiveSeatMap is null || SelectedRoomId == 0) return;
+    if (!IsAllValid()) { Snackbar.Add("Validation failed", Severity.Error); return; }
+    Saving = true;
+    try
+    {
+      var http = new HttpClient { BaseAddress = ApiBase() };
+      if (!string.IsNullOrEmpty(Auth.Token)) http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", Auth.Token);
+      var seatmapJson = System.Text.Json.JsonSerializer.Serialize(ActiveSeatMap, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = null });
+      var payload = new { name = (string?)null, seatmap = ActiveSeatMap };
+      var content = new StringContent(System.Text.Json.JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+      var resp = await http.PutAsync($"/api/teacher/rooms/{SelectedRoomId}", content);
+      resp.EnsureSuccessStatusCode();
+      Dirty = false;
+      DirtyDesks.Remove(desk.Id);
+      // refresh snapshot of saved desk
+      OriginalDeskSnapshots[desk.Id] = CloneDesk(desk);
+      Snackbar.Add("Desk saved", Severity.Success);
+    }
+    catch (Exception ex)
+    {
+      Snackbar.Add($"Failed to save desk: {ex.Message}", Severity.Error);
+    }
+    finally { Saving = false; }
+  }
+
+  private void ReloadRoom() => _ = LoadRoom();
+
+  private IEnumerable<Models.Desk> FilteredDesks => ActiveSeatMap?.Desks
+      .Where(d => string.IsNullOrWhiteSpace(Search) || (d.Name?.Contains(Search, StringComparison.OrdinalIgnoreCase) ?? false))
+      .OrderBy(d => d.Name) ?? Enumerable.Empty<Models.Desk>();
+
+  private bool IsAllValid()
+  {
+    if (ActiveSeatMap is null) return false;
+    foreach (var d in ActiveSeatMap.Desks)
+    {
+      if (!ValidIp(d.Ip ?? string.Empty)) return false;
+  // No width/height properties in Desk model; skip size validation.
+    }
+    return true;
+  }
+
+  private void ClearSearch() => Search = string.Empty;
+
+  private void MarkDirty() => Dirty = true;
+  private void MarkDeskDirty(string id)
+  {
+    DirtyDesks.Add(id);
+    Dirty = true; // overall dirty
+  }
+
+  private bool IsDeskDirty(string id) => DirtyDesks.Contains(id);
+
+  private void DiscardDeskChanges(string id)
+  {
+    if (ActiveSeatMap is null) return;
+    if (OriginalDeskSnapshots.TryGetValue(id, out var original))
+    {
+      var target = ActiveSeatMap.Desks.FirstOrDefault(d => d.Id == id);
+      if (target is not null)
+      {
+        target.Name = original.Name;
+        target.Hostname = original.Hostname;
+        target.Ip = original.Ip;
+        target.Os = original.Os;
+        target.Notes = original.Notes;
+        target.X = original.X;
+        target.Y = original.Y;
+      }
+    }
+    DirtyDesks.Remove(id);
+    if (DirtyDesks.Count == 0) Dirty = false;
+  }
+
+  private Models.Desk CloneDesk(Models.Desk d) => new()
+  {
+    Id = d.Id,
+    Name = d.Name,
+    Hostname = d.Hostname ?? string.Empty,
+    Ip = d.Ip,
+    Os = d.Os,
+    Notes = d.Notes,
+    X = d.X,
+    Y = d.Y
+  };
+
+  private class RoomDto
+  {
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public Models.SeatMap? Seatmap { get; set; }
+  }
+}

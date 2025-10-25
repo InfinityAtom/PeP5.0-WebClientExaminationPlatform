@@ -5,6 +5,7 @@ const path = require('path');
 const { spawn, spawnSync } = require('child_process');
 const axios = require('axios');
 const crypto = require('crypto');
+const { sendMail } = require('./email');
 const telemetryStore = new Map(); // key: sessionId, value: { score, events: [] }
 const runRate = new Map(); // sid -> lastTs
 const app = express();
@@ -12,20 +13,19 @@ const PORT = process.env.PORT || 3000;
 
 // Security Configuration
 const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY || crypto.randomBytes(32).toString('hex');
-const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+const CORE_API_URL = process.env.CORE_API_URL || 'http://localhost:5000';
 
 // Store generated exams temporarily (in production, use a database)
 const examStore = new Map();
 const sessionStore = new Map();
-
+const OPENAI_API_KEY = 'sk-CAnrEiacRAgMxrYU4jFI39oydW6n4qurxxPJqvlIQcT3BlbkFJVSYtRDcYEctHPkIV6WC8S2_davf8-tho9WHNUcMgUA';
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-function getSID(req){ return req.query.sid || req.headers['x-session-token'] || req.ip; }
-
+// Using file-based repo (no migration needed)
 // Security middleware for admin routes
 function authenticateAdmin(req, res, next) {
     const authHeader = req.headers.authorization;
@@ -736,9 +736,9 @@ app.post('/reset', (req, res) => {
     }
 });
 
-app.post('/submit', (req, res) => {
+app.post('/submit', async (req, res) => {
     try {
-        const { files } = req.body;
+        const { files, bookingId, tasks, csvs } = req.body;
         
         if (!files) {
             return res.status(400).json({ error: 'No files provided' });
@@ -756,8 +756,27 @@ app.post('/submit', (req, res) => {
             }
         });
         
+        // Persist to core service if bookingId provided
+        let dbId = null;
+        try {
+            if (bookingId) {
+                const resp = await axios.post(`${CORE_API_URL}/internal/submissions`, {
+                    bookingId,
+                    files,
+                    tasks,
+                    csvs,
+                    evaluation: null,
+                    gradeFinal: null,
+                    feedback: null
+                }, { timeout: 8000 });
+                dbId = resp.data?.id ?? null;
+            }
+        } catch (e) {
+            console.warn('Core submission save failed (non-fatal):', e?.message || e);
+        }
+        
         console.log(`Exam submitted and saved to: ${submissionDir}`);
-        res.json({ success: true, submissionId: timestamp });
+        res.json({ success: true, submissionId: timestamp, id: dbId });
     } catch (error) {
         console.error('Error submitting exam:', error);
         res.status(500).json({ error: 'Failed to submit exam' });
@@ -941,6 +960,58 @@ app.post('/evaluate', async (req, res) => {
     }
 });
 
+
+// Combined evaluate + persist + email
+app.post('/evaluate_submission', async (req, res) => {
+    try{
+        const { files, exam, bookingId } = req.body || {};
+        if (!files || !exam) return res.status(400).json({ error: 'Missing files or exam' });
+
+        let result;
+        try{
+            result = await evaluateWithGPT(files, exam);
+        } catch(err){
+            console.warn('OpenAI evaluation failed, falling back to heuristics:', err?.message || err);
+            result = await evaluateHeuristics(files, exam);
+        }
+
+        if (bookingId) {
+            let contactInfo = null;
+            try {
+                const response = await axios.post(`${CORE_API_URL}/internal/evaluations`, {
+                    bookingId,
+                    evaluation: result,
+                    gradeFinal: null,
+                    feedback: null
+                }, { timeout: 8000 });
+                contactInfo = response.data || null;
+            } catch (e) {
+                console.warn('Core evaluation sync failed (non-fatal):', e?.message || e);
+            }
+
+            if (contactInfo) {
+                const html = `<pre>${escapeHtml(JSON.stringify(result, null, 2))}</pre>`;
+                try {
+                    if (contactInfo.teacherEmail) {
+                        await sendMail(contactInfo.teacherEmail, 'Copy of exam evaluation', html);
+                    }
+                    if (contactInfo.studentEmail) {
+                        await sendMail(contactInfo.studentEmail, 'Copy of your exam evaluation', html);
+                    }
+                } catch (e2) {
+                    console.warn('email error (evaluation copies):', e2?.message || e2);
+                }
+            }
+        }
+
+        res.setHeader('Content-Type', 'application/json');
+        return res.send(JSON.stringify(result));
+    } catch(error){
+        console.error('Error evaluating submission:', error);
+        return res.status(500).json({ error: 'Failed to evaluate submission' });
+    }
+});
+
 app.get('/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
@@ -957,6 +1028,15 @@ app.get('/admin/health', authenticateAdmin, (req, res) => {
 
 function getSessionId(req){
   return req.query.sid || req.headers['x-session-token'] || req.ip;
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 app.post('/telemetry', (req, res) => {
@@ -985,32 +1065,29 @@ app.get('/admin/telemetry/:sid', authenticateAdmin, (req, res) => {
 
 
 app.listen(PORT, () => {
-    console.log(`🚀 AI Exam IDE Server running on port ${PORT}`);
-    console.log(`📁 Workspace directory: ${WORKSPACE_DIR}`);
-    console.log(`📤 Submissions directory: ${SUBMISSIONS_DIR}`);
-    console.log(`🔄 Caching DISABLED - Fresh exams every time`);
-    console.log(`🔐 Admin secret key: ${ADMIN_SECRET_KEY.substring(0, 8)}...`);
-    console.log(`🔑 Admin password: ${process.env.ADMIN_PASSWORD || 'admin123!@#'}`);
-    
+    console.log(`[start] AI Exam service running on port ${PORT}`);
+    console.log(`[start] Workspace directory: ${WORKSPACE_DIR}`);
+    console.log(`[start] Submissions directory: ${SUBMISSIONS_DIR}`);
+    console.log(`[start] Core API URL: ${CORE_API_URL}`);
+    console.log(`[start] Admin secret preview: ${ADMIN_SECRET_KEY.substring(0, 8)}...`);
+    console.log(`[start] Admin password: ${process.env.ADMIN_PASSWORD || 'admin123!@#'}`);
     const javaCheck = runCommand('java', ['-version']);
     const javacCheck = runCommand('javac', ['-version']);
-    
     if (javaCheck.code === 0 && javacCheck.code === 0) {
-        console.log('✅ Java is available for code execution');
+        console.log('[start] Java runtime detected');
     } else {
-        console.log('❌ Java not found - please install Java JDK 17+');
+        console.log('[warn] Java runtime not found - please install JDK 17+');
     }
-    
     if (OPENAI_API_KEY && OPENAI_API_KEY !== 'your-openai-api-key-here') {
-        console.log('✅ OpenAI API key configured');
+        console.log('[start] OpenAI API key configured');
     } else {
-        console.log('⚠️  OpenAI API key not configured - using fallback exams');
+        console.log('[warn] OpenAI API key not configured - using fallback exams');
     }
-    
-    console.log('\n📋 Admin API Endpoints:');
+    console.log('\nAdmin API Endpoints:');
     console.log('  POST /admin/login - Get session token');
     console.log('  GET /admin/exams - List all exams');
     console.log('  GET /admin/exam/:examId - Get specific exam');
     console.log('  GET /admin/exam/:examId/tasks - Get exam tasks only');
     console.log('  GET /admin/exam/:examId?format=download - Download exam JSON');
 });
+

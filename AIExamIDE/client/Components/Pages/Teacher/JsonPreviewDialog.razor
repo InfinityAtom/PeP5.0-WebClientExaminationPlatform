@@ -1,0 +1,98 @@
+@using MudBlazor
+@inject ISnackbar Snackbar
+<MudStack Spacing="2" Class="pa-2" Style="min-width:600px;">
+    <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+        <MudText Typo="Typo.subtitle1">Generated JSON</MudText>
+        <MudStack Row Spacing="1">
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="CopyAsync" Disabled="@string.IsNullOrWhiteSpace(Json)">Copy</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadAsync" Disabled="@string.IsNullOrWhiteSpace(Json)">Download</MudButton>
+            <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.Close" OnClick="Close">Close</MudButton>
+        </MudStack>
+    </MudStack>
+    <div id="@_editorId" style="border:1px solid var(--mud-palette-lines-default); height:500px; width:100%; border-radius:4px;" />
+    <MudText Typo="Typo.caption" Color="Color.Secondary">Length: @Json.Length chars</MudText>
+</MudStack>
+
+@code {
+    [Parameter] public string Json { get; set; } = string.Empty;
+    [CascadingParameter] IDialogReference? DialogReference { get; set; }
+    [Inject] IJSRuntime JS { get; set; } = default!;
+    [Inject] ISnackbar SnackbarService { get; set; } = default!;
+    private string _editorId = $"json_preview_{Guid.NewGuid():N}";
+    private readonly string _theme = "ace/theme/monokai"; // fixed theme as requested
+    [Parameter] public Action<string, Severity>? Notify { get; set; }
+
+    private void Close() => DialogReference?.Close();
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await EnsureScriptAsync();
+            await InitEditorAsync();
+        }
+        else
+        {
+            await UpdateEditorAsync();
+        }
+    }
+
+    private async Task EnsureScriptAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("import", "./js/jsonPreviewAce.js");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to load Ace helper script: {ex.Message}");
+        }
+    }
+
+    private async Task InitEditorAsync()
+    {
+        await JS.InvokeVoidAsync("JsonPreviewAce.initJsonAce", _editorId, Json, _theme);
+    }
+
+    private async Task UpdateEditorAsync()
+    {
+        await JS.InvokeVoidAsync("JsonPreviewAce.updateJsonAce", _editorId, Json);
+    }
+
+    // Theme selection removed; always monokai
+
+    // Removed auto-close because snackbar not visible for user; showing inline alert as fallback
+
+    private async Task CopyAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", Json);
+            Notify?.Invoke("JSON copied to clipboard", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            SnackbarService.Add($"Copy failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DownloadAsync()
+    {
+        try
+        {
+            var bytes = System.Text.Encoding.UTF8.GetBytes(Json);
+            var b64 = Convert.ToBase64String(bytes);
+            await JS.InvokeVoidAsync("BlazorDownloadFile", $"fallback-exam.json", "application/json", b64);
+            Notify?.Invoke("JSON download started", Severity.Success);
+        }
+        catch(Exception ex)
+        {
+            SnackbarService.Add($"Download failed: {ex.Message}", Severity.Error);
+        }
+    }
+    // Snackbar injected via Notify delegate from parent; fallback to local Snackbar if needed
+    private void TryShow(string message, Severity severity)
+    {
+        if (Notify != null) { Notify(message, severity); return; }
+    try { SnackbarService.Add(message, severity); } catch {}
+    }
+}

@@ -1,0 +1,33 @@
+/* Updated styling for MudBlazor-based PortalLayout */
+
+.portal-title {
+  font-weight: 600;
+  letter-spacing: .5px;
+}
+
+.portal-drawer {
+  padding-top: 8px;
+  background: var(--mud-palette-surface);
+  border-right: 1px solid var(--mud-palette-lines-default);
+}
+
+.portal-drawer .mud-navmenu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 4px;
+}
+
+.portal-drawer a, .portal-drawer button {
+  font-size: .75rem;
+}
+
+.portal-main {
+  background: var(--mud-palette-background);
+  min-height: calc(100vh - 64px);
+}
+
+@media (max-width: 900px) {
+  .portal-drawer { display: none; }
+  .portal-main { padding: 0 !important; }
+}

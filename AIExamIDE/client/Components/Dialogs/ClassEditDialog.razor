@@ -1,0 +1,53 @@
+@using MudBlazor
+@inherits ComponentBase
+
+<MudDialog MaxWidth="MaxWidth.Medium" FullWidth="true">
+  <DialogContent>
+    <MudStack Spacing="3">
+      <MudText Typo="Typo.h5">@(IsEdit ? "Edit Class" : "Create Class")</MudText>
+      <MudTextField @bind-Value="InputName" Label="Class Name" Required="true" Placeholder="e.g., Computer Science 101" Immediate="true" @ref="_nameField" />
+    </MudStack>
+  </DialogContent>
+  <DialogActions>
+    <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="Cancel">Cancel</MudButton>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@IsSaveDisabled" OnClick="Submit" StartIcon="@Icons.Material.Filled.Save">@(IsEdit ? "Update" : "Create")</MudButton>
+  </DialogActions>
+</MudDialog>
+
+@code {
+  [Parameter] public bool IsEdit { get; set; }
+  [Parameter] public string ClassName { get; set; } = string.Empty;
+
+  private string InputName = string.Empty;
+  private MudTextField<string>? _nameField;
+  [CascadingParameter] IDialogReference? DialogRef { get; set; }
+  [Inject] ISnackbar Snackbar { get; set; } = default!;
+
+  protected override void OnInitialized()
+  {
+    InputName = ClassName;
+  }
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (firstRender && _nameField is not null)
+    {
+      try { await _nameField.FocusAsync(); } catch { }
+    }
+  }
+
+  private bool IsSaveDisabled => string.IsNullOrWhiteSpace(InputName) || InputName.Trim().Length < 2;
+
+  private void Cancel() => DialogRef?.Close(DialogResult.Cancel());
+
+  private void Submit()
+  {
+    var trimmed = InputName.Trim();
+    if (string.IsNullOrWhiteSpace(trimmed))
+    {
+      Snackbar.Add("Class name is required", Severity.Warning);
+      return;
+    }
+    DialogRef?.Close(DialogResult.Ok(trimmed));
+  }
+}
