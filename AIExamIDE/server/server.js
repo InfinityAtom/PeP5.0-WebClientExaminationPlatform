@@ -18,7 +18,7 @@ const CORE_API_URL = process.env.CORE_API_URL || 'http://localhost:5000';
 // Store generated exams temporarily (in production, use a database)
 const examStore = new Map();
 const sessionStore = new Map();
-const OPENAI_API_KEY = '';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
 // Middleware
